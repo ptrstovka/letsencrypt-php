@@ -13,9 +13,11 @@ $basename = 'example.org';
 // Listing the domains to be included on the certificate
 $domains = array('example.org', 'test.example.org');
 
+$logger = new DiagnosticLogger;
+
 // Initiating the client instance. In this case using the staging server (argument 2) and outputting all status and
 // debug information (argument 3).
-$client = new LEClient($email, true, LECLient::LOG_STATUS);
+$client = new LEClient($email, true, $logger);
 // Initiating the order instance. The keys and certificate will be stored in /example.org/ (argument 1) and the domains
 // in the array (argument 2) will be on the certificate.
 $order = $client->getOrCreateOrder($basename, $domains);
@@ -42,3 +44,7 @@ if($order->allAuthorizationsValid())
 	// Check whether the order has been finalized before we can get the certificate. If finalized, get the certificate.
 	if($order->isFinalized()) $order->getCertificate();
 }
+
+
+echo "\nDiagnostic logs\n";
+$logger->dumpConsole();

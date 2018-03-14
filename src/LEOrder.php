@@ -1,6 +1,8 @@
 <?php
 namespace Elphin\LEClient;
 
+use Psr\Log\LoggerInterface;
+
 /**
  * LetsEncrypt Order class, containing the functions and data associated with a specific LetsEncrypt order.
  *
@@ -67,8 +69,7 @@ class LEOrder
      * new order is created.
      *
      * @param LEConnector $connector The LetsEncrypt Connector instance to use for HTTP requests.
-     * @param int $log               The level of logging. Defaults to no logging. LOG_OFF, LOG_STATUS, LOG_DEBUG
-     *                               accepted.
+     * @param LoggerInterface $log   PSR-3 compatible logger
      * @param array $certificateKeys Array containing location of certificate keys files.
      * @param string $basename       The base name for the order. Preferable the top domain (example.org).
      *                               Will be the directory in which the keys are stored. Used for the CommonName in the
@@ -83,7 +84,7 @@ class LEOrder
      */
     public function __construct(
         $connector,
-        $log,
+        LoggerInterface $log,
         $certificateKeys,
         $basename,
         $domains,
@@ -134,12 +135,11 @@ class LEOrder
                                 rename($file, $file.'.old');
                             }
                         }
-                        if ($this->log >= LECLient::LOG_STATUS) {
-                            LEFunctions::log(
-                                'Domains do not match order data. Renaming current files and creating new order.',
-                                'function LEOrder __construct'
-                            );
-                        }
+
+                        $this->log->warning(
+                            'Domains do not match order data. Renaming current files and creating new order.'
+                        );
+
                         $this->createOrder($domains, $notBefore, $notAfter);
                     } else {
                         $this->status = $get['body']['status'];
@@ -158,13 +158,11 @@ class LEOrder
                             unlink($file);
                         }
                     }
-                    if ($this->log >= LECLient::LOG_STATUS) {
-                        LEFunctions::log(
-                            'Order data for \'' . $this->basename .
-                            '\' invalid. Deleting order data and creating new order.',
-                            'function LEOrder __construct'
-                        );
-                    }
+                    $this->log->warning(
+                        'Order data for \'' . $this->basename .
+                        '\' invalid. Deleting order data and creating new order.'
+                    );
+
                     $this->createOrder($domains, $notBefore, $notAfter);
                 }
             } else {
@@ -173,23 +171,15 @@ class LEOrder
                         unlink($file);
                     }
                 }
-                if ($this->log >= LECLient::LOG_STATUS) {
-                    LEFunctions::log(
-                        'Order data for \'' . $this->basename .
-                        '\' invalid. Deleting order data and creating new order.',
-                        'function LEOrder __construct'
-                    );
-                }
+                $this->log->warning(
+                    'Order data for \'' . $this->basename .
+                    '\' has invalid URL. Deleting order data and creating new order.'
+                );
 
                 $this->createOrder($domains, $notBefore, $notAfter);
             }
         } else {
-            if ($this->log >= LECLient::LOG_STATUS) {
-                LEFunctions::log(
-                    'No order found for \'' . $this->basename . '\'. Creating new order.',
-                    'function LEOrder __construct'
-                );
-            }
+            $this->log->warning('No order found for \'' . $this->basename . '\'. Creating new order.');
             $this->createOrder($domains, $notBefore, $notAfter);
         }
     }
@@ -256,12 +246,7 @@ class LEOrder
                     }
                     $this->updateAuthorizations();
 
-                    if ($this->log >= LECLient::LOG_STATUS) {
-                        LEFunctions::log(
-                            'Created order for \'' . $this->basename . '\'.',
-                            'function createOrder (function LEOrder __construct)'
-                        );
-                    }
+                    $this->log->info('Created order for ' . $this->basename);
                 } else {
                     throw new \RuntimeException('New-order returned invalid response.');
                 }
@@ -293,12 +278,7 @@ class LEOrder
             }
             $this->updateAuthorizations();
         } else {
-            if ($this->log >= LECLient::LOG_STATUS) {
-                LEFunctions::log(
-                    'Cannot update data for order \'' . $this->basename . '\'.',
-                    'function updateOrderData'
-                );
-            }
+            $this->log->error('Cannot update data for order ' . $this->basename);
         }
     }
 
@@ -446,12 +426,8 @@ class LEOrder
                                     );
                                     $post = $this->connector->post($challenge['url'], $sign);
                                     if (strpos($post['header'], "200 OK") !== false) {
-                                        if ($this->log >= LECLient::LOG_STATUS) {
-                                            LEFunctions::log(
-                                                'HTTP challenge for \'' . $identifier . '\' valid.',
-                                                'function verifyPendingOrderAuthorization'
-                                            );
-                                        }
+                                        $this->log->notice('HTTP challenge for \'' . $identifier . '\' valid.');
+
                                         while ($auth->status == 'pending') {
                                             sleep(1);
                                             $auth->updateData();
@@ -459,12 +435,9 @@ class LEOrder
                                         return true;
                                     }
                                 } else {
-                                    if ($this->log >= LECLient::LOG_STATUS) {
-                                        LEFunctions::log(
-                                            'HTTP challenge for \'' . $identifier . '\' tested, found invalid.',
-                                            'function verifyPendingOrderAuthorization'
-                                        );
-                                    }
+                                    $this->log->warning(
+                                        'HTTP challenge for \'' . $identifier . '\' tested, found invalid.'
+                                    );
                                 }
                                 break;
                             case LEOrder::CHALLENGE_TYPE_DNS:
@@ -479,12 +452,8 @@ class LEOrder
                                     );
                                     $post = $this->connector->post($challenge['url'], $sign);
                                     if (strpos($post['header'], "200 OK") !== false) {
-                                        if ($this->log >= LECLient::LOG_STATUS) {
-                                            LEFunctions::log(
-                                                'DNS challenge for \'' . $identifier . '\' valid.',
-                                                'function verifyPendingOrderAuthorization'
-                                            );
-                                        }
+                                        $this->log->notice('DNS challenge for \'' . $identifier . '\' valid.');
+
                                         while ($auth->status == 'pending') {
                                             sleep(1);
                                             $auth->updateData();
@@ -492,12 +461,9 @@ class LEOrder
                                         return true;
                                     }
                                 } else {
-                                    if ($this->log >= LECLient::LOG_STATUS) {
-                                        LEFunctions::log(
-                                            'DNS challenge for \'' . $identifier . '\' tested, found invalid.',
-                                            'function verifyPendingOrderAuthorization'
-                                        );
-                                    }
+                                    $this->log->warning(
+                                        'DNS challenge for \'' . $identifier . '\' tested, found invalid.'
+                                    );
                                 }
                                 break;
                         }
@@ -526,23 +492,15 @@ class LEOrder
                 );
                 $post = $this->connector->post($auth->authorizationURL, $sign);
                 if (strpos($post['header'], "200 OK") !== false) {
-                    if ($this->log >= LECLient::LOG_STATUS) {
-                        LEFunctions::log(
-                            'Authorization for \'' . $identifier . '\' deactivated.',
-                            'function deactivateOrderAuthorization'
-                        );
-                    }
+                    $this->log->info('Authorization for \'' . $identifier . '\' deactivated.');
                     $this->updateAuthorizations();
                     return true;
                 }
             }
         }
-        if ($this->log >= LECLient::LOG_STATUS) {
-            LEFunctions::log(
-                'No authorization found for \'' . $identifier . '\', cannot deactivate.',
-                'function deactivateOrderAuthorization'
-            );
-        }
+
+        $this->log->warning('No authorization found for \'' . $identifier . '\', cannot deactivate.');
+
         return false;
     }
 
@@ -642,29 +600,21 @@ class LEOrder
                         $this->certificateURL = $post['body']['certificate'];
                     }
                     $this->updateAuthorizations();
-                    if ($this->log >= LECLient::LOG_STATUS) {
-                        LEFunctions::log(
-                            'Order for \'' . $this->basename . '\' finalized.',
-                            'function finalizeOrder'
-                        );
-                    }
+                    $this->log->info('Order for \'' . $this->basename . '\' finalized.');
+
                     return true;
                 }
             } else {
-                if ($this->log >= LECLient::LOG_STATUS) {
-                    LEFunctions::log(
-                        'Not all authorizations are valid for \'' . $this->basename . '\'. Cannot finalize order.',
-                        'function finalizeOrder'
-                    );
-                }
-            }
-        } else {
-            if ($this->log >= LECLient::LOG_STATUS) {
-                LEFunctions::log(
-                    'Order status for \'' . $this->basename . '\' is \'' . $this->status . '\'. Cannot finalize order.',
-                    'function finalizeOrder'
+                $this->log->warning(
+                    'Not all authorizations are valid for \'' .
+                    $this->basename . '\'. Cannot finalize order.'
                 );
             }
+        } else {
+            $this->log->warning(
+                'Order status for \'' . $this->basename .
+                '\' is \'' . $this->status . '\'. Cannot finalize order.'
+            );
         }
         return false;
     }
@@ -692,12 +642,8 @@ class LEOrder
     {
         $polling = 0;
         while ($this->status == 'processing' && $polling < 4) {
-            if ($this->log >= LECLient::LOG_STATUS) {
-                LEFunctions::log(
-                    'Certificate for \'' . $this->basename . '\' being processed. Retrying in 5 seconds...',
-                    'function getCertificate'
-                );
-            }
+            $this->log->info('Certificate for \'' . $this->basename . '\' being processed. Retrying in 5 seconds...');
+
             sleep(5);
             $this->updateOrderData();
             $polling++;
@@ -722,38 +668,25 @@ class LEOrder
                         }
                         file_put_contents(trim($this->certificateKeys['fullchain_certificate']), $fullchain);
                     }
-                    if ($this->log >= LECLient::LOG_STATUS) {
-                        LEFunctions::log(
-                            'Certificate for \'' . $this->basename . '\' saved',
-                            'function getCertificate'
-                        );
-                    }
+                    $this->log->info('Certificate for \'' . $this->basename . '\' saved');
+
                     return true;
                 } else {
-                    if ($this->log >= LECLient::LOG_STATUS) {
-                        LEFunctions::log(
-                            'Received invalid certificate for \'' . $this->basename .
-                            '\'. Cannot save certificate.',
-                            'function getCertificate'
-                        );
-                    }
-                }
-            } else {
-                if ($this->log >= LECLient::LOG_STATUS) {
-                    LEFunctions::log(
-                        'Invalid response for certificate request for \'' . $this->basename .
-                        '\'. Cannot save certificate.',
-                        'function getCertificate'
+                    $this->log->warning(
+                        'Received invalid certificate for \'' . $this->basename .
+                        '\'. Cannot save certificate.'
                     );
                 }
-            }
-        } else {
-            if ($this->log >= LECLient::LOG_STATUS) {
-                LEFunctions::log(
-                    'Order for \'' . $this->basename . '\' not valid. Cannot retrieve certificate.',
-                    'function getCertificate'
+            } else {
+                $this->log->warning(
+                    'Invalid response for certificate request for \'' . $this->basename .
+                    '\'. Cannot save certificate.'
                 );
             }
+        } else {
+            $this->log->warning(
+                'Order for \'' . $this->basename . '\' not valid. Cannot retrieve certificate.'
+            );
         }
         return false;
     }
@@ -792,36 +725,22 @@ class LEOrder
                 );
                 $post = $this->connector->post($this->connector->revokeCert, $sign);
                 if (strpos($post['header'], "200 OK") !== false) {
-                    if ($this->log >= LECLient::LOG_STATUS) {
-                        LEFunctions::log(
-                            'Certificate for order \'' . $this->basename . '\' revoked.',
-                            'function revokeCertificate'
-                        );
-                    }
+                    $this->log->info('Certificate for order \'' . $this->basename . '\' revoked.');
                     return true;
                 } else {
-                    if ($this->log >= LECLient::LOG_STATUS) {
-                        LEFunctions::log(
-                            'Certificate for order \'' . $this->basename . '\' cannot be revoked.',
-                            'function revokeCertificate'
-                        );
-                    }
+                    $this->log->warning('Certificate for order \'' . $this->basename . '\' cannot be revoked.');
                 }
             } else {
-                if ($this->log >= LECLient::LOG_STATUS) {
-                    LEFunctions::log(
-                        'Certificate for order \'' . $this->basename . '\' not found. Cannot revoke certificate.',
-                        'function revokeCertificate'
-                    );
-                }
-            }
-        } else {
-            if ($this->log >= LECLient::LOG_STATUS) {
-                LEFunctions::log(
-                    'Order for \'' . $this->basename . '\' not valid. Cannot revoke certificate.',
-                    'function revokeCertificate'
+                $this->log->warning(
+                    'Certificate for order \'' . $this->basename .
+                    '\' not found. Cannot revoke certificate.'
                 );
             }
+        } else {
+            $this->log->warning(
+                'Order for \'' . $this->basename .
+                '\' not valid. Cannot revoke certificate.'
+            );
         }
         return false;
     }

@@ -1,6 +1,8 @@
 <?php
 namespace Elphin\LEClient;
 
+use Psr\Log\LoggerInterface;
+
 /**
  * LetsEncrypt Account class, containing the functions and data associated with a LetsEncrypt account.
  *
@@ -48,26 +50,27 @@ class LEAccount
     public $createdAt;
     public $status;
 
+    /** @var LoggerInterface  */
     private $log;
 
     /**
      * Initiates the LetsEncrypt Account class.
      *
-     * @param LEConnector $connector      The LetsEncrypt Connector instance to use for HTTP requests.
-     * @param int $log The level of logging. Defaults to no logging. LOG_OFF, LOG_STATUS, LOG_DEBUG accepted.
-     * @param array $email The array of strings containing e-mail addresses. Only used when creating a new account.
-     * @param array $accountKeys Array containing location of account keys files.
+     * @param LEConnector $connector The LetsEncrypt Connector instance to use for HTTP requests.
+     * @param LoggerInterface $log   PSR-3 compatible logger
+     * @param array $email           The array of strings containing e-mail addresses. Only used when creating a
+     *                               new account.
+     * @param array $accountKeys     Array containing location of account keys files.
      */
-    public function __construct($connector, $log, $email, $accountKeys)
+    public function __construct($connector, LoggerInterface $log, $email, $accountKeys)
     {
         $this->connector = $connector;
         $this->accountKeys = $accountKeys;
         $this->log = $log;
 
         if (!file_exists($this->accountKeys['private_key']) or !file_exists($this->accountKeys['public_key'])) {
-            if ($this->log >= LECLient::LOG_STATUS) {
-                LEFunctions::log('No account found, attempting to create account.', 'function LEAccount __construct');
-            }
+            $this->log->notice("No account found for $email, attempting to create account");
+
             LEFunctions::RSAgenerateKeys(null, $this->accountKeys['private_key'], $this->accountKeys['public_key']);
             $this->connector->accountURL = $this->createLEAccount($email);
         } else {
@@ -174,9 +177,8 @@ class LEAccount
             $this->initialIp = $post['body']['initialIp'];
             $this->createdAt = $post['body']['createdAt'];
             $this->status = $post['body']['status'];
-            if ($this->log >= LECLient::LOG_STATUS) {
-                LEFunctions::log('Account data updated.', 'function updateAccount');
-            }
+
+            $this->log->notice('Account data updated');
             return true;
         } else {
             return false;
@@ -221,9 +223,7 @@ class LEAccount
             rename($this->accountKeys['private_key'].'.new', $this->accountKeys['private_key']);
             rename($this->accountKeys['public_key'].'.new', $this->accountKeys['public_key']);
 
-            if ($this->log >= LECLient::LOG_STATUS) {
-                LEFunctions::log('Account keys changed.', 'function changeAccountKey');
-            }
+            $this->log->notice('Account keys changed');
             return true;
         } else {
             return false;
@@ -245,9 +245,7 @@ class LEAccount
         $post = $this->connector->post($this->connector->accountURL, $sign);
         if (strpos($post['header'], "200 OK") !== false) {
             $this->connector->accountDeactivated = true;
-            if ($this->log >= LECLient::LOG_STATUS) {
-                LEFunctions::log('Account deactivated.', 'function deactivateAccount');
-            }
+            $this->log->info('Account deactivated');
             return true;
         }
 

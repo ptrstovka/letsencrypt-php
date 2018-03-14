@@ -165,35 +165,6 @@ class LEFunctions
         return base64_decode(strtr($input, '-_', '+/'));
     }
 
-
-
-    /**
-     * Outputs a log message.
-     *
-     * @param mixed $data      The data to print.
-     * @param string $function The function name to print above. Defaults to the calling function's name from the
-     *                         stacktrace. (optional)
-     */
-    public static function log($data, $function = '')
-    {
-        $e = new \Exception();
-        $trace = $e->getTrace();
-        $function = $function == ''
-            ? 'function ' .  $trace[3]['function'] . ' (function ' . $trace[2]['function'] . ')'
-            : $function;
-        if (PHP_SAPI == "cli") {
-            echo '[' . date('d-m-Y H:i:s') . '] ' . $function . ":\n";
-            print_r($data);
-            echo "\n\n";
-        } else {
-            echo '<b>' . date('d-m-Y H:i:s') . ', ' . $function . ':</b><br>';
-            print_r($data);
-            echo '<br><br>';
-        }
-    }
-
-
-
     /**
      * Makes a request to the HTTP challenge URL and checks whether the authorization is valid for the given $domain.
      *

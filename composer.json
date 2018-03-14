@@ -24,13 +24,17 @@
         }
     ],
     "require": {
-        "php" : "~7.1",
+        "php" : "~7.0",
         "ext-curl": "*",
-        "ext-openssl": "*"
+        "ext-openssl": "*",
+        "psr/log": "^1.0"
     },
     "require-dev": {
         "phpunit/phpunit" : ">=5.4.3",
         "squizlabs/php_codesniffer": "^2.3"
+    },
+    "suggest": {
+        "psr/log-implementation": "A PSR-3 compatible logger is recommended for troubleshooting"
     },
     "autoload": {
         "psr-4": {

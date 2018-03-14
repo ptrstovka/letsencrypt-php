@@ -1,6 +1,8 @@
 <?php
 namespace Elphin\LEClient;
 
+use Psr\Log\LoggerInterface;
+
 /**
  * LetsEncrypt Connector class, containing the functions necessary to sign with JSON Web Key and Key ID, and perform
  * GET, POST and HEAD requests.
@@ -52,17 +54,17 @@ class LEConnector
     public $accountURL;
     public $accountDeactivated = false;
 
+    /** @var LoggerInterface */
     private $log;
 
     /**
      * Initiates the LetsEncrypt Connector class.
      *
-     * @param int $log           The level of logging. Defaults to no logging.
-     *                           LOG_OFF, LOG_STATUS, LOG_DEBUG accepted.
+     * @param LoggerInterface $log
      * @param string $baseURL    The LetsEncrypt server URL to make requests to.
      * @param array $accountKeys Array containing location of account keys files.
      */
-    public function __construct($log, $baseURL, $accountKeys)
+    public function __construct(LoggerInterface $log, $baseURL, $accountKeys)
     {
         $this->baseURL = $baseURL;
         $this->accountKeys = $accountKeys;
@@ -147,11 +149,11 @@ class LEConnector
         $jsonresponse = [
             'request' => $method . ' ' . $requestURL,
             'header' => $header,
-            'body' => $jsonbody === null ? $body : $jsonbody
+            'body' => $jsonbody === null ? $body : $jsonbody,
+            'raw' => $body
         ];
-        if ($this->log >= LECLient::LOG_DEBUG) {
-            LEFunctions::log($jsonresponse);
-        }
+
+        $this->log->debug('LEConnector::request {request} body = {raw}', $jsonresponse);
 
         if ((
                 ($method == 'POST' or $method == 'GET') and

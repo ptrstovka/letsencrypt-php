@@ -2,6 +2,10 @@
 
 namespace Elphin\LEClient;
 
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
+
 /**
  * Main LetsEncrypt Client class, works as a framework for the LEConnector, LEAccount, LEOrder and
  * LEAuthorization classes.
@@ -37,7 +41,7 @@ namespace Elphin\LEClient;
  * @link       https://github.com/yourivw/LEClient
  * @since      Class available since Release 1.0.0
  */
-class LEClient
+class LEClient implements LoggerAwareInterface
 {
     const LE_PRODUCTION = 'https://acme-v02.api.letsencrypt.org';
     const LE_STAGING = 'https://acme-staging-v02.api.letsencrypt.org';
@@ -50,11 +54,8 @@ class LEClient
 
     private $baseURL;
 
+    /** @var LoggerInterface  */
     private $log;
-
-    const LOG_OFF = 0;      // Logs no messages or faults, except Runtime Exceptions.
-    const LOG_STATUS = 1;   // Logs only messages and faults.
-    const LOG_DEBUG = 2;    // Logs messages, faults and raw responses from HTTP requests.
 
     /**
      * Initiates the LetsEncrypt main client.
@@ -63,8 +64,7 @@ class LEClient
      *                                creating a new account.
      * @param string $acmeURL         ACME URL, can be string or one of predefined values: LE_STAGING or LE_PRODUCTION.
      *                                Defaults to LE_STAGING.
-     * @param int $log                The level of logging. Defaults to no logging. LOG_OFF, LOG_STATUS, LOG_DEBUG
-     *                                accepted. Defaults to LOG_OFF. (optional)
+     * @param LoggerInterface $logger PSR-3 compatible logger
      * @param string|array $certificateKeys The main directory in which all keys (and certificates), including account
      *                                keys are stored. Defaults to 'keys/'. (optional)
      *                                Alternatively, can pass array containing location of all certificate files.
@@ -78,12 +78,12 @@ class LEClient
     public function __construct(
         $email,
         $acmeURL = LEClient::LE_STAGING,
-        $log = LEClient::LOG_OFF,
+        LoggerInterface $logger = null,
         $certificateKeys = 'keys/',
         $accountKeys = '__account/'
     ) {
 
-        $this->log = $log;
+        $this->log = $logger ?? new NullLogger();
 
         if (is_bool($acmeURL)) {
             if ($acmeURL === true) {
@@ -182,11 +182,16 @@ class LEClient
 
         $this->connector = new LEConnector($this->log, $this->baseURL, $this->accountKeys);
         $this->account = new LEAccount($this->connector, $this->log, $email, $this->accountKeys);
-        if ($this->log) {
-            LEFunctions::log('LEClient finished constructing', 'function LEClient __construct');
-        }
+        $this->log->debug('LEClient finished constructing');
     }
 
+    /**
+     * @inheritdoc
+     */
+    public function setLogger(LoggerInterface $logger)
+    {
+        $this->log = $logger;
+    }
 
     /**
      * Returns the LetsEncrypt account used in the current client.
@@ -218,6 +223,8 @@ class LEClient
      */
     public function getOrCreateOrder($basename, $domains, $keyType = 'rsa-4096', $notBefore = '', $notAfter = '')
     {
+        $this->log->info("LEClient::getOrCreateOrder($basename,...)");
+
         return new LEOrder(
             $this->connector,
             $this->log,
