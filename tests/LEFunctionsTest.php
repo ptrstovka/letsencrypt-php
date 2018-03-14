@@ -43,7 +43,8 @@ class LEFunctionsTest extends TestCase
         $this->rm($tmp.'public.pem');
     }
 
-    private function rm($file) {
+    private function rm($file)
+    {
         if (file_exists($file)) {
             unlink($file);
         }

@@ -92,8 +92,8 @@ class LEOrder
         $keyType,
         $notBefore,
         $notAfter
-    )
-    {
+    ) {
+    
         $keyType = $keyType ?? 'rsa-4096';
 
         $this->connector = $connector;
