@@ -1,4 +1,5 @@
 <?php
+
 namespace Elphin\LEClient;
 
 use Psr\Log\LoggerInterface;
@@ -69,17 +70,17 @@ class LEOrder
      * new order is created.
      *
      * @param LEConnector $connector The LetsEncrypt Connector instance to use for HTTP requests.
-     * @param LoggerInterface $log   PSR-3 compatible logger
+     * @param LoggerInterface $log PSR-3 compatible logger
      * @param array $certificateKeys Array containing location of certificate keys files.
-     * @param string $basename       The base name for the order. Preferable the top domain (example.org).
+     * @param string $basename The base name for the order. Preferable the top domain (example.org).
      *                               Will be the directory in which the keys are stored. Used for the CommonName in the
      *                               certificate as well.
-     * @param array $domains         The array of strings containing the domain names on the certificate.
-     * @param string $keyType        Type of the key we want to use for certificate. Can be provided in ALGO-SIZE format
+     * @param array $domains The array of strings containing the domain names on the certificate.
+     * @param string $keyType Type of the key we want to use for certificate. Can be provided in ALGO-SIZE format
      *                               (ex. rsa-4096 or ec-256) or simple "rsa" and "ec" (using default sizes)
-     * @param string $notBefore      A date string formatted like 0000-00-00T00:00:00Z (yyyy-mm-dd hh:mm:ss) at which
+     * @param string $notBefore A date string formatted like 0000-00-00T00:00:00Z (yyyy-mm-dd hh:mm:ss) at which
      *                               the certificate becomes valid.
-     * @param string $notAfter       A date string formatted like 0000-00-00T00:00:00Z (yyyy-mm-dd hh:mm:ss) until which
+     * @param string $notAfter A date string formatted like 0000-00-00T00:00:00Z (yyyy-mm-dd hh:mm:ss) until which
      *                               the certificate is valid.
      */
     public function __construct(
@@ -91,7 +92,8 @@ class LEOrder
         $keyType,
         $notBefore,
         $notAfter
-    ) {
+    )
+    {
         $keyType = $keyType ?? 'rsa-4096';
 
         $this->connector = $connector;
@@ -132,7 +134,7 @@ class LEOrder
                     if (!empty($diff)) {
                         foreach ($this->certificateKeys as $file) {
                             if (is_file($file)) {
-                                rename($file, $file.'.old');
+                                rename($file, $file . '.old');
                             }
                         }
 
@@ -188,10 +190,10 @@ class LEOrder
      * Creates a new LetsEncrypt order and fills this instance with its data. Subsequently creates a new RSA keypair
      * for the certificate.
      *
-     * @param array $domains    The array of strings containing the domain names on the certificate.
+     * @param array $domains The array of strings containing the domain names on the certificate.
      * @param string $notBefore A date string formatted like 0000-00-00T00:00:00Z (yyyy-mm-dd hh:mm:ss)
      *                          at which the certificate becomes valid.
-     * @param string $notAfter  A date string formatted like 0000-00-00T00:00:00Z (yyyy-mm-dd hh:mm:ss)
+     * @param string $notAfter A date string formatted like 0000-00-00T00:00:00Z (yyyy-mm-dd hh:mm:ss)
      *                          until which the certificate is valid.
      */
     private function createOrder($domains, $notBefore, $notAfter)
@@ -255,7 +257,7 @@ class LEOrder
             }
         } else {
             throw new \RuntimeException(
-                'notBefore and notAfter fields must be empty '.
+                'notBefore and notAfter fields must be empty ' .
                 'or be a string similar to 0000-00-00T00:00:00Z'
             );
         }
@@ -321,10 +323,10 @@ class LEOrder
      * Get all pending LetsEncrypt Authorization instances and return the necessary data for verification.
      * The data in the return object depends on the $type.
      *
-     * @param int $type The type of verification to get. Supporting http-01 and dns-01.
-     *                  Supporting LEOrder::CHALLENGE_TYPE_HTTP and LEOrder::CHALLENGE_TYPE_DNS. Throws a Runtime
-     *                  Exception when requesting an unknown $type. Keep in mind a wildcard domain authorization only
-     *                  accepts LEOrder::CHALLENGE_TYPE_DNS.
+     * @param string $type The type of verification to get. Supporting http-01 and dns-01.
+     *                     Supporting LEOrder::CHALLENGE_TYPE_HTTP and LEOrder::CHALLENGE_TYPE_DNS. Throws a Runtime
+     *                     Exception when requesting an unknown $type. Keep in mind a wildcard domain authorization only
+     *                     accepts LEOrder::CHALLENGE_TYPE_DNS.
      *
      * @return array|bool Returns an array with verification data if successful, false if not pending LetsEncrypt
      *                  Authorization instances were found. The return array always
@@ -339,6 +341,10 @@ class LEOrder
         $authorizations = [];
 
         $privateKey = openssl_pkey_get_private(file_get_contents($this->connector->accountKeys['private_key']));
+        if ($privateKey === false) {
+            $this->log->error('LEOrder::getPendingAuthorizations failed to load private key');
+            return false;
+        }
         $details = openssl_pkey_get_details($privateKey);
 
         $header = array(
@@ -387,7 +393,7 @@ class LEOrder
      * Updates the LetsEncrypt Authorization instances after a successful verification.
      *
      * @param string $identifier The domain name to verify.
-     * @param int $type          The type of verification. Supporting LEOrder::CHALLENGE_TYPE_HTTP and
+     * @param int $type The type of verification. Supporting LEOrder::CHALLENGE_TYPE_HTTP and
      *                           LEOrder::CHALLENGE_TYPE_DNS.
      *
      * @return boolean  Returns true when the verification request was successful, false if not.
@@ -395,6 +401,11 @@ class LEOrder
     public function verifyPendingOrderAuthorization($identifier, $type)
     {
         $privateKey = openssl_pkey_get_private(file_get_contents($this->connector->accountKeys['private_key']));
+        if ($privateKey === false) {
+            $this->log->error('LEOrder::verifyPendingOrderAuthorization failed to load private key');
+            return false;
+        }
+
         $details = openssl_pkey_get_details($privateKey);
 
         $header = array(
@@ -477,7 +488,7 @@ class LEOrder
     /**
      * Deactivate an LetsEncrypt Authorization instance.
      *
-     * @param string    $identifier The domain name for which the verification should be deactivated.
+     * @param string $identifier The domain name for which the verification should be deactivated.
      *
      * @return boolean  Returns true is the deactivation request was successful, false if not.
      */
@@ -525,14 +536,17 @@ class LEOrder
             $CN = $domains[0];
         }
 
-        $dn = array(
+        $dn = [
             "commonName" => $CN
-        );
+        ];
 
         $san = implode(",", array_map(function ($dns) {
             return "DNS:" . $dns;
         }, $domains));
         $tmpConf = tmpfile();
+        if ($tmpConf === false) {
+            throw new \RuntimeException('LEOrder::generateCSR failed to create tmp file');
+        }
         $tmpConfMeta = stream_get_meta_data($tmpConf);
         $tmpConfPath = $tmpConfMeta["uri"];
 
@@ -554,7 +568,11 @@ class LEOrder
         );
 
         $privateKey = openssl_pkey_get_private(file_get_contents($this->certificateKeys['private_key']));
-        $csr = openssl_csr_new($dn, $privateKey, array('config' => $tmpConfPath, 'digest_alg' => 'sha256'));
+        if ($privateKey === false) {
+            throw new \RuntimeException('LEOrder::generateCSR failed to load private key');
+        }
+
+        $csr = openssl_csr_new($dn, $privateKey, ['config' => $tmpConfPath, 'digest_alg' => 'sha256']);
         openssl_csr_export($csr, $csr);
         return $csr;
     }
@@ -661,10 +679,12 @@ class LEOrder
                         file_put_contents($this->certificateKeys['certificate'], $matches[0][0]);
                     }
 
-                    if (count($matches[0]) > 1 && isset($this->certificateKeys['fullchain_certificate'])) {
-                        $fullchain = $matches[0][0]."\n";
-                        for ($i=1; $i<count($matches[0]); $i++) {
-                            $fullchain .= $matches[0][$i]."\n";
+                    $matchCount = count($matches[0]);
+                    if ($matchCount > 1 && isset($this->certificateKeys['fullchain_certificate'])) {
+                        $fullchain = $matches[0][0] . "\n";
+
+                        for ($i = 1; $i < $matchCount; $i++) {
+                            $fullchain .= $matches[0][$i] . "\n";
                         }
                         file_put_contents(trim($this->certificateKeys['fullchain_certificate']), $fullchain);
                     }
@@ -696,7 +716,7 @@ class LEOrder
      * the certificate revoke request cannot be signed with the account private key, and will be signed with the
      * certificate private key.
      *
-     * @param int   $reason   The reason to revoke the LetsEncrypt Order instance certificate. Possible reasons can be
+     * @param int $reason The reason to revoke the LetsEncrypt Order instance certificate. Possible reasons can be
      *                        found in section 5.3.1 of RFC5280.
      *
      * @return boolean  Returns true if the certificate was successfully revoked, false if not.

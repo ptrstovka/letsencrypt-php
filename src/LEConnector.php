@@ -91,7 +91,7 @@ class LEConnector
      */
     private function getNewNonce()
     {
-        if (strpos($this->head($this->newNonce)['header'], "204 No Content") == false) {
+        if (strpos($this->head($this->newNonce)['header'], "204 No Content") === false) {
             throw new \RuntimeException('No new nonce.');
         }
     }
@@ -102,7 +102,7 @@ class LEConnector
      * @param string $method The HTTP method to use. Accepting GET, POST and HEAD requests.
      * @param string $URL    The URL or partial URL to make the request to.
      *                       If it is partial, the baseURL will be prepended.
-     * @param object $data   The body to attach to a POST request. Expected as a JSON encoded string.
+     * @param string $data   The body to attach to a POST request. Expected as a JSON encoded string.
      *
      * @return array Returns an array with the keys 'request', 'header' and 'body'.
      */
@@ -194,7 +194,7 @@ class LEConnector
      * Makes a POST request.
      *
      * @param string $url The URL or partial URL for the request to. If it is partial, the baseURL will be prepended.
-     * @param object $data The body to attach to a POST request. Expected as a json string.
+     * @param string $data The body to attach to a POST request. Expected as a json string.
      *
      * @return array Returns an array with the keys 'request', 'header' and 'body'.
      */
@@ -219,10 +219,10 @@ class LEConnector
     /**
      * Generates a JSON Web Key signature to attach to the request.
      *
-     * @param array  $payload        The payload to add to the signature.
+     * @param array|string  $payload The payload to add to the signature.
      * @param string $url            The URL to use in the signature.
      * @param string $privateKeyFile The private key to sign the request with. Defaults to 'private.pem'.
-     *                                  Defaults to accountKeys[private_key].
+     *                               Defaults to accountKeys[private_key].
      *
      * @return string   Returns a JSON encoded string containing the signature.
      */
@@ -232,32 +232,36 @@ class LEConnector
             $privateKeyFile = $this->accountKeys['private_key'];
         }
         $privateKey = openssl_pkey_get_private(file_get_contents($privateKeyFile));
+        if ($privateKey === false) {
+            throw new \RuntimeException('LEConnector::signRequestJWK failed to get private key');
+        }
+
         $details = openssl_pkey_get_details($privateKey);
 
-        $protected = array(
+        $protected = [
             "alg" => "RS256",
-            "jwk" => array(
+            "jwk" => [
                 "kty" => "RSA",
                 "n" => LEFunctions::base64UrlSafeEncode($details["rsa"]["n"]),
                 "e" => LEFunctions::base64UrlSafeEncode($details["rsa"]["e"]),
-            ),
+            ],
             "nonce" => $this->nonce,
             "url" => $url
-        );
+        ];
 
         $payload64 = LEFunctions::base64UrlSafeEncode(
             str_replace('\\/', '/', is_array($payload) ? json_encode($payload) : $payload)
         );
         $protected64 = LEFunctions::base64UrlSafeEncode(json_encode($protected));
 
-        openssl_sign($protected64.'.'.$payload64, $signed, $privateKey, "SHA256");
+        openssl_sign($protected64.'.'.$payload64, $signed, $privateKey, OPENSSL_ALGO_SHA256);
         $signed64 = LEFunctions::base64UrlSafeEncode($signed);
 
-        $data = array(
+        $data = [
             'protected' => $protected64,
             'payload' => $payload64,
             'signature' => $signed64
-        );
+        ];
 
         return json_encode($data);
     }
@@ -281,26 +285,26 @@ class LEConnector
         $privateKey = openssl_pkey_get_private(file_get_contents($privateKeyFile));
         //$details = openssl_pkey_get_details($privateKey);
 
-        $protected = array(
+        $protected = [
             "alg" => "RS256",
             "kid" => $kid,
             "nonce" => $this->nonce,
             "url" => $url
-        );
+        ];
 
         $payload64 = LEFunctions::base64UrlSafeEncode(
             str_replace('\\/', '/', is_array($payload) ? json_encode($payload) : $payload)
         );
         $protected64 = LEFunctions::base64UrlSafeEncode(json_encode($protected));
 
-        openssl_sign($protected64.'.'.$payload64, $signed, $privateKey, "SHA256");
+        openssl_sign($protected64.'.'.$payload64, $signed, $privateKey, OPENSSL_ALGO_SHA256);
         $signed64 = LEFunctions::base64UrlSafeEncode($signed);
 
-        $data = array(
+        $data = [
             'protected' => $protected64,
             'payload' => $payload64,
             'signature' => $signed64
-        );
+        ];
 
         return json_encode($data);
     }

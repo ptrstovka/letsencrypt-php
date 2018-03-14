@@ -62,8 +62,8 @@ class LEClient implements LoggerAwareInterface
      *
      * @param array $email            The array of strings containing e-mail addresses. Only used in this function when
      *                                creating a new account.
-     * @param string $acmeURL         ACME URL, can be string or one of predefined values: LE_STAGING or LE_PRODUCTION.
-     *                                Defaults to LE_STAGING.
+     * @param string|bool $acmeURL    ACME URL, can be string or one of predefined values: LE_STAGING or LE_PRODUCTION.
+     *                                Defaults to LE_STAGING. Can also pass true/false for production/staging
      * @param LoggerInterface $logger PSR-3 compatible logger
      * @param string|array $certificateKeys The main directory in which all keys (and certificates), including account
      *                                keys are stored. Defaults to 'keys/'. (optional)
