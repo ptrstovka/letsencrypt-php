@@ -1,44 +1,77 @@
-# LEClient
-PHP LetsEncrypt client library for ACME v2. The aim of this client is to make an easy-to-use and integrated solution to create a LetsEncrypt-issued SSL/TLS certificate with PHP. The user has to have access to the web server or DNS management to be able to verify the domain is accessible/owned by the user.
+# leclient
 
-## Current version
+[![Latest Version on Packagist][ico-version]][link-packagist]
+[![Software License][ico-license]](LICENSE.md)
+[![Build Status][ico-travis]][link-travis]
+[![Coverage Status][ico-scrutinizer]][link-scrutinizer]
+[![Quality Score][ico-code-quality]][link-code-quality]
+[![Total Downloads][ico-downloads]][link-downloads]
 
-The current version is 1.1.0
-
-This client was developed with the use of the LetsEncrypt staging server for version 2. While version 2 is still being developed and implemented by LetsEncrypt at this moment, the project might be subject to change.
+PHP LetsEncrypt client library for ACME v2. The aim of this client is to make an 
+easy-to-use and integrated solution to create a LetsEncrypt-issued SSL/TLS 
+certificate with PHP. The user has to have access to the web server or DNS 
+management to be able to verify the domain is accessible/owned by the user.
 
 ## Getting Started
 
-These instructions will get you started with this client library. Is you have any questions or find any problems, feel free to open an issue and I'll try to have a look at it.
+These instructions will get you started with this client library. Is you have any questions 
+or find any problems, please open an issue.
 
-Also have a look at the [LetsEncrypt documentation](https://letsencrypt.org/docs/) for more information and documentation on LetsEncrypt and ACME.
+Also have a look at the [LetsEncrypt documentation](https://letsencrypt.org/docs/) for more 
+information and documentation on LetsEncrypt and ACME.
 
 ### Prerequisites
 
-The minimum required PHP version is 7.1.0 due to the implementation of ECDSA. Version 1.0.0 does still work with PHP 5.2 since it is not yet compatible with ECDSA, and will be kept available, but will not be maintained.
+The minimum required PHP version is 7.1.0 due to the implementation of ECDSA. 
 
 This client also depends on cURL and OpenSSL.
 
-### Installing
 
-Download and install the LEClient folder and examples wherever you want to install it. You can include the library by adding the following:
-```php
-require_once('LEClient/LEClient.php');
+## Install
+
+Via Composer
+
+``` bash
+$ composer require lordelph/leclient
 ```
+
+## Usage
+
+``` php
+$skeleton = new Elphin\LEClient();
+echo $skeleton->echoPhrase('Hello, League!');
+```
+
+## Change log
+
+Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.
+
+## Testing
+
+``` bash
+$ composer test
+```
+
+## Contributing
+
+Please see [CONTRIBUTING](CONTRIBUTING.md) and [CODE_OF_CONDUCT](CODE_OF_CONDUCT.md) for details.
+
+
+## Usage
+
+The basic functions and its necessary arguments are shown here. An extended description is included in each class.
 
 It is advisable to cut the script some slack regarding execution time by setting a higher maximum time. There are several ways to do so. One it to add the following to the top of the page:
 ```php
 ini_set('max_execution_time', 120); // Maximum execution time in seconds.
 ```
 
-## Usage
-
-The basic functions and its necessary arguments are shown here. An extended description is included in each class.
-
 <br />
 
 Initiating the client:
 ```php
+use Elphin\LEClient;
+
 $client = new LEClient($email);                               // Initiating a basic LEClient with an array of string e-mail address(es).
 $client = new LEClient($email, true);                         // Initiating a LECLient and use the LetsEncrypt staging URL.
 $client = new LEClient($email, true, LEClient::LOG_STATUS);   // Initiating a LEClient and log status messages (LOG_DEBUG for full debugging).
@@ -163,11 +196,36 @@ For both HTTP and DNS authorizations, a full example is available in the project
 
 If you can't get these examples, or the client library to work, try and have a look at the LetsEncrypt documentation mentioned above as well.
 
+
 ## Security
 
 Security is an important subject regarding SSL/TLS certificates, of course. Since this client is a PHP script, it is likely this code is running on a web server. It is obvious that your private key, stored on your web server, should never be accessible from the web.
 When the client created the keys directory for the first time, it will store a .htaccess file in this directory, denying all visitors. Always make sure yourself your keys aren't accessible from the web! I am in no way responsible if your private keys go public. If this does happen, the easiest solution is to change your account keys (described above) or deactivate your account and create a new one. Next, create a new certificate.
 
+If you discover any security related issues, please email paul@elphin.com instead of using the issue tracker.
+
+## Credits
+
+- [Paul Dixon][link-author]
+- [Youri van Weegberg][link-author2]
+- [All Contributors][link-contributors]
+
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+
+[ico-version]: https://img.shields.io/packagist/v/lordelph/leclient.svg?style=flat-square
+[ico-license]: https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square
+[ico-travis]: https://img.shields.io/travis/lordelph/leclient/master.svg?style=flat-square
+[ico-scrutinizer]: https://img.shields.io/scrutinizer/coverage/g/lordelph/leclient.svg?style=flat-square
+[ico-code-quality]: https://img.shields.io/scrutinizer/g/lordelph/leclient.svg?style=flat-square
+[ico-downloads]: https://img.shields.io/packagist/dt/lordelph/leclient.svg?style=flat-square
+
+[link-packagist]: https://packagist.org/packages/lordelph/leclient
+[link-travis]: https://travis-ci.org/lordelph/leclient
+[link-scrutinizer]: https://scrutinizer-ci.com/g/lordelph/leclient/code-structure
+[link-code-quality]: https://scrutinizer-ci.com/g/lordelph/leclient
+[link-downloads]: https://packagist.org/packages/lordelph/leclient
+[link-author]: https://github.com/lordelph
+[link-author2]: https://github.com/yourivw
+[link-contributors]: ../../contributors
