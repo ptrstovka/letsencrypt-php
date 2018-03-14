@@ -6,7 +6,7 @@ Updates should follow the [Keep a CHANGELOG](http://keepachangelog.com/) princip
 
 ## 0.1.0 - tba
 
-Conversion of original client to be composer installable and PSR-2
+Conversion of [original client](https://github.com/yourivw/leclient) to be composer installable and PSR-2
 formatted. Some minor corrections made to declare missing member
 variables.
 
