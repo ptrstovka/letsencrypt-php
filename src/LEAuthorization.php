@@ -95,8 +95,8 @@ class LEAuthorization
      * Gets the challenge of the given $type for this LetsEncrypt Authorization instance.
      * Throws a Runtime Exception if the given $type is not found in this LetsEncrypt Authorization instance.
      *
-     * @param int $type The type of verification.
-     *                  Supporting LEOrder::CHALLENGE_TYPE_HTTP and LEOrder::CHALLENGE_TYPE_DNS.
+     * @param string $type The type of verification.
+     *                     Supporting LEOrder::CHALLENGE_TYPE_HTTP and LEOrder::CHALLENGE_TYPE_DNS.
      *
      * @return array Returns an array with the challenge of the requested $type.
      */
