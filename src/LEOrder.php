@@ -49,6 +49,8 @@ class LEOrder
     public $expires;
     public $identifiers;
     private $authorizationURLs;
+
+    /** @var LEAuthorization[] */
     public $authorizations;
     public $finalizeURL;
     public $certificateURL;
@@ -138,7 +140,7 @@ class LEOrder
                                 'function LEOrder __construct'
                             );
                         }
-                        $this->createOrder($domains, $notBefore, $notAfter, $keyType);
+                        $this->createOrder($domains, $notBefore, $notAfter);
                     } else {
                         $this->status = $get['body']['status'];
                         $this->expires = $get['body']['expires'];
@@ -344,7 +346,7 @@ class LEOrder
      *                  Exception when requesting an unknown $type. Keep in mind a wildcard domain authorization only
      *                  accepts LEOrder::CHALLENGE_TYPE_DNS.
      *
-     * @return array    Returns an array with verification data if successful, false if not pending LetsEncrypt
+     * @return array|bool Returns an array with verification data if successful, false if not pending LetsEncrypt
      *                  Authorization instances were found. The return array always
      *                  contains 'type' and 'identifier'. For LEOrder::CHALLENGE_TYPE_HTTP, the array contains
      *                  'filename' and 'content' for necessary the authorization file.
@@ -354,7 +356,7 @@ class LEOrder
 
     public function getPendingAuthorizations($type)
     {
-        $authorizations = array();
+        $authorizations = [];
 
         $privateKey = openssl_pkey_get_private(file_get_contents($this->connector->accountKeys['private_key']));
         $details = openssl_pkey_get_details($privateKey);
