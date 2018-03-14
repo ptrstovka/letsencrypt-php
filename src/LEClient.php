@@ -54,16 +54,16 @@ class LEClient implements LoggerAwareInterface
 
     private $baseURL;
 
-    /** @var LoggerInterface  */
+    /** @var LoggerInterface */
     private $log;
 
     /**
      * Initiates the LetsEncrypt main client.
      *
-     * @param array $email            The array of strings containing e-mail addresses. Only used in this function when
+     * @param array $email The array of strings containing e-mail addresses. Only used in this function when
      *                                creating a new account.
-     * @param string|bool $acmeURL    ACME URL, can be string or one of predefined values: LE_STAGING or LE_PRODUCTION.
-     *                                Defaults to LE_STAGING. Can also pass true/false for production/staging
+     * @param string|bool $acmeURL ACME URL, can be string or one of predefined values: LE_STAGING or LE_PRODUCTION.
+     *                                Defaults to LE_STAGING. Can also pass true/false for staging/production
      * @param LoggerInterface $logger PSR-3 compatible logger
      * @param string|array $certificateKeys The main directory in which all keys (and certificates), including account
      *                                keys are stored. Defaults to 'keys/'. (optional)
@@ -82,15 +82,10 @@ class LEClient implements LoggerAwareInterface
         $certificateKeys = 'keys/',
         $accountKeys = '__account/'
     ) {
-
         $this->log = $logger ?? new NullLogger();
 
         if (is_bool($acmeURL)) {
-            if ($acmeURL === true) {
-                $this->baseURL = LEClient::LE_STAGING;
-            } elseif ($acmeURL === false) {
-                $this->baseURL = LEClient::LE_PRODUCTION;
-            }
+            $this->baseURL = $acmeURL ? LEClient::LE_STAGING : LEClient::LE_PRODUCTION;
         } elseif (is_string($acmeURL)) {
             $this->baseURL = $acmeURL;
         } else {
@@ -113,11 +108,11 @@ class LEClient implements LoggerAwareInterface
             }
 
             $this->certificateKeys = array(
-                "public_key" => $certificateKeys.'/public.pem',
-                "private_key" => $certificateKeys.'/private.pem',
-                "certificate" => $certificateKeys.'/certificate.crt',
-                "fullchain_certificate" => $certificateKeys.'/fullchain.crt',
-                "order" => $certificateKeys.'/order'
+                "public_key" => $certificateKeys . '/public.pem',
+                "private_key" => $certificateKeys . '/private.pem',
+                "certificate" => $certificateKeys . '/certificate.crt',
+                "fullchain_certificate" => $certificateKeys . '/fullchain.crt',
+                "order" => $certificateKeys . '/order'
             );
         } elseif (is_array($certificateKeys)) {
             if (!isset($certificateKeys['certificate']) && !isset($certificateKeys['fullchain_certificate'])) {
@@ -129,16 +124,16 @@ class LEClient implements LoggerAwareInterface
                 throw new \RuntimeException('certificateKeys[private_key] file path must be set');
             }
             if (!isset($certificateKeys['order'])) {
-                $certificateKeys['order'] = dirname($certificateKeys['private_key']).'/order';
+                $certificateKeys['order'] = dirname($certificateKeys['private_key']) . '/order';
             }
             if (!isset($certificateKeys['public_key'])) {
-                $certificateKeys['public_key'] = dirname($certificateKeys['private_key']).'/public.pem';
+                $certificateKeys['public_key'] = dirname($certificateKeys['private_key']) . '/public.pem';
             }
 
             foreach ($certificateKeys as $param => $file) {
                 $parentDir = dirname($file);
                 if (!is_dir($parentDir)) {
-                    throw new \RuntimeException($parentDir.' directory not found');
+                    throw new \RuntimeException($parentDir . ' directory not found');
                 }
             }
 
@@ -148,7 +143,7 @@ class LEClient implements LoggerAwareInterface
         }
 
         if (is_string($accountKeys)) {
-            $accountKeys = $certificateKeysDir.'/'.$accountKeys;
+            $accountKeys = $certificateKeysDir . '/' . $accountKeys;
 
             if (!file_exists($accountKeys)) {
                 mkdir($accountKeys, 0777, true);
@@ -156,8 +151,8 @@ class LEClient implements LoggerAwareInterface
             }
 
             $this->accountKeys = array(
-                "private_key" => $accountKeys.'/private.pem',
-                "public_key" => $accountKeys.'/public.pem'
+                "private_key" => $accountKeys . '/private.pem',
+                "public_key" => $accountKeys . '/public.pem'
             );
         } elseif (is_array($accountKeys)) {
             if (!isset($accountKeys['private_key'])) {
@@ -170,7 +165,7 @@ class LEClient implements LoggerAwareInterface
             foreach ($accountKeys as $param => $file) {
                 $parentDir = dirname($file);
                 if (!is_dir($parentDir)) {
-                    throw new \RuntimeException($parentDir.' directory not found');
+                    throw new \RuntimeException($parentDir . ' directory not found');
                 }
             }
 
@@ -207,15 +202,15 @@ class LEClient implements LoggerAwareInterface
      * Returns a LetsEncrypt order. If an order exists, this one is returned. If not, a new order is created and
      * returned.
      *
-     * @param string $basename  The base name for the order. Preferable the top domain (example.org). Will be the
+     * @param string $basename The base name for the order. Preferable the top domain (example.org). Will be the
      *                          directory in which the keys are stored. Used for the CommonName in the certificate as
      *                          well.
-     * @param array $domains    The array of strings containing the domain names on the certificate.
-     * @param string $keyType   Type of the key we want to use for certificate. Can be provided in ALGO-SIZE format
+     * @param array $domains The array of strings containing the domain names on the certificate.
+     * @param string $keyType Type of the key we want to use for certificate. Can be provided in ALGO-SIZE format
      *                          (ex. rsa-4096 or ec-256) or simple "rsa" and "ec" (using default sizes)
      * @param string $notBefore A date string formatted like 0000-00-00T00:00:00Z (yyyy-mm-dd hh:mm:ss) at which the
      *                          certificate becomes valid. Defaults to the moment the order is finalized. (optional)
-     * @param string $notAfter  A date string formatted like 0000-00-00T00:00:00Z (yyyy-mm-dd hh:mm:ss) until which the
+     * @param string $notAfter A date string formatted like 0000-00-00T00:00:00Z (yyyy-mm-dd hh:mm:ss) until which the
      *                          certificate is valid. Defaults to 90 days past the moment the order is finalized.
      *                          (optional)
      *
