@@ -1,6 +1,9 @@
 <?php
 namespace Elphin\LEClient;
 
+use Elphin\LEClient\Exception\LogicException;
+use Elphin\LEClient\Exception\RuntimeException;
+
 /**
  * LetsEncrypt Functions class, supplying the LetsEncrypt Client with supportive functions.
  *
@@ -54,16 +57,16 @@ class LEFunctions
     ) {
 
         if ($keySize < 2048 || $keySize > 4096) {
-            throw new \RuntimeException("RSA key size must be between 2048 and 4096");
+            throw new LogicException("RSA key size must be between 2048 and 4096");
         }
 
-        $res = openssl_pkey_new(array(
+        $res = openssl_pkey_new([
             "private_key_type" => OPENSSL_KEYTYPE_RSA,
             "private_key_bits" => intval($keySize),
-        ));
+        ]);
 
         if (!openssl_pkey_export($res, $privateKey)) {
-            throw new \RuntimeException("RSA keypair export failed!");
+            throw new RuntimeException("RSA keypair export failed!"); //@codeCoverageIgnore
         }
 
         $details = openssl_pkey_get_details($res);
@@ -98,27 +101,26 @@ class LEFunctions
         $keySize = 256
     ) {
         if (version_compare(PHP_VERSION, '7.1.0') == -1) {
-            throw new \RuntimeException("PHP 7.1+ required for EC keys");
+            throw new RuntimeException("PHP 7.1+ required for EC keys"); //@codeCoverageIgnore
         }
 
-
         if ($keySize == 256) {
-                $res = openssl_pkey_new(array(
+                $res = openssl_pkey_new([
                         "private_key_type" => OPENSSL_KEYTYPE_EC,
                         "curve_name" => "prime256v1",
-                ));
+                ]);
         } elseif ($keySize == 384) {
-                $res = openssl_pkey_new(array(
+                $res = openssl_pkey_new([
                         "private_key_type" => OPENSSL_KEYTYPE_EC,
                         "curve_name" => "secp384r1",
-                ));
+                ]);
         } else {
-            throw new \RuntimeException("EC key size must be 256 or 384");
+            throw new LogicException("EC key size must be 256 or 384");
         }
 
 
         if (!openssl_pkey_export($res, $privateKey)) {
-            throw new \RuntimeException("EC keypair export failed!");
+            throw new RuntimeException("EC keypair export failed!"); //@codeCoverageIgnore
         }
 
         $details = openssl_pkey_get_details($res);
@@ -173,6 +175,7 @@ class LEFunctions
      * @param string    $keyAuthorization   the keyAuthorization (file content) to compare.
      *
      * @return boolean  Returns true if the challenge is valid, false if not.
+     * @codeCoverageIgnore
      */
     public static function checkHTTPChallenge($domain, $token, $keyAuthorization)
     {
@@ -192,6 +195,7 @@ class LEFunctions
      * @param string    $DNSDigest  The digest to compare the DNS record to.
      *
      * @return boolean  Returns true if the challenge is valid, false if not.
+     * @codeCoverageIgnore
      */
     public static function checkDNSChallenge($domain, $DNSDigest)
     {
