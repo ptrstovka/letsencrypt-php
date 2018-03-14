@@ -671,22 +671,24 @@ class LEOrder
             $this->updateOrderData();
             $polling++;
         }
-        if ($this->status == 'valid' && !empty($this->certificateURL)) {
-            $get = $this->connector->get($this->certificateURL);
-            if (strpos($get['header'], "200 OK") !== false) {
-                $this->writeCertificates($get['body']);
-            } else {
-                $this->log->warning(
-                    'Invalid response for certificate request for \'' . $this->basename .
-                    '\'. Cannot save certificate.'
-                );
-            }
-        } else {
+
+        if ($this->status != 'valid' || empty($this->certificateURL)) {
             $this->log->warning(
                 'Order for \'' . $this->basename . '\' not valid. Cannot retrieve certificate.'
             );
+            return false;
         }
-        return false;
+
+        $get = $this->connector->get($this->certificateURL);
+        if (strpos($get['header'], "200 OK") === false) {
+            $this->log->warning(
+                'Invalid response for certificate request for \'' . $this->basename .
+                '\'. Cannot save certificate.'
+            );
+            return false;
+        }
+
+        return $this->writeCertificates($get['body']);
     }
 
 
