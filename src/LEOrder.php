@@ -94,12 +94,85 @@ class LEOrder
         $notAfter
     ) {
     
-        $keyType = $keyType ?? 'rsa-4096';
-
         $this->connector = $connector;
         $this->basename = $basename;
         $this->log = $log;
+        $this->certificateKeys = $certificateKeys;
 
+        $this->initialiseKeyTypeAndSize($keyType ?? 'rsa-4096');
+
+        if ($this->loadExistingOrder($domains)) {
+            $this->updateAuthorizations();
+        } else {
+            $this->createOrder($domains, $notBefore, $notAfter);
+        }
+    }
+
+    private function loadExistingOrder($domains)
+    {
+        if (file_exists($this->certificateKeys['private_key']) and
+            file_exists($this->certificateKeys['order']) and
+            file_exists($this->certificateKeys['public_key'])
+        ) {
+            $this->orderURL = file_get_contents($this->certificateKeys['order']);
+            if (filter_var($this->orderURL, FILTER_VALIDATE_URL)) {
+                $get = $this->connector->get($this->orderURL);
+                if (strpos($get['header'], "200 OK") !== false) {
+                    $orderdomains = array_map(function ($ident) {
+                        return $ident['value'];
+                    }, $get['body']['identifiers']);
+                    $diff = array_merge(array_diff($orderdomains, $domains), array_diff($domains, $orderdomains));
+                    if (empty($diff)) {
+                        //the order is good
+                        $this->status = $get['body']['status'];
+                        $this->expires = $get['body']['expires'];
+                        $this->identifiers = $get['body']['identifiers'];
+                        $this->authorizationURLs = $get['body']['authorizations'];
+                        $this->finalizeURL = $get['body']['finalize'];
+                        if (array_key_exists('certificate', $get['body'])) {
+                            $this->certificateURL = $get['body']['certificate'];
+                        }
+                        return true;
+                    } else {
+                        $this->log->warning(
+                            'Domains do not match order data. Deleting and creating new order.'
+                        );
+                    }
+                } else {
+                    $this->log->warning(
+                        'Order data for \'' . $this->basename .
+                        '\' invalid. Deleting order data and creating new order.'
+                    );
+                }
+            } else {
+                //the order URL is valid
+                $this->log->warning(
+                    'Order data for \'' . $this->basename .
+                    '\' has invalid URL. Deleting order data and creating new order.'
+                );
+            }
+
+            //order existed but had problems, clear it up...
+            $this->deleteOrderFiles();
+        } else {
+            //order doesn't exist, so we create one
+            $this->log->info('No order found for \'' . $this->basename . '\'. Creating new order.');
+        }
+
+        return false;
+    }
+
+    private function deleteOrderFiles()
+    {
+        foreach ($this->certificateKeys as $file) {
+            if (is_file($file)) {
+                unlink($file);
+            }
+        }
+    }
+
+    private function initialiseKeyTypeAndSize($keyType)
+    {
         if ($keyType == 'rsa') {
             $this->keyType = 'rsa';
             $this->keySize = 4096;
@@ -115,74 +188,6 @@ class LEOrder
             } else {
                 throw new \RuntimeException('Key type \'' . $keyType . '\' not supported.');
             }
-        }
-
-        $this->certificateKeys = $certificateKeys;
-
-        if (file_exists($this->certificateKeys['private_key']) and
-            file_exists($this->certificateKeys['order']) and
-            file_exists($this->certificateKeys['public_key'])
-        ) {
-            $this->orderURL = file_get_contents($this->certificateKeys['order']);
-            if (filter_var($this->orderURL, FILTER_VALIDATE_URL)) {
-                $get = $this->connector->get($this->orderURL);
-                if (strpos($get['header'], "200 OK") !== false) {
-                    $orderdomains = array_map(function ($ident) {
-                        return $ident['value'];
-                    }, $get['body']['identifiers']);
-                    $diff = array_merge(array_diff($orderdomains, $domains), array_diff($domains, $orderdomains));
-                    if (!empty($diff)) {
-                        foreach ($this->certificateKeys as $file) {
-                            if (is_file($file)) {
-                                rename($file, $file . '.old');
-                            }
-                        }
-
-                        $this->log->warning(
-                            'Domains do not match order data. Renaming current files and creating new order.'
-                        );
-
-                        $this->createOrder($domains, $notBefore, $notAfter);
-                    } else {
-                        $this->status = $get['body']['status'];
-                        $this->expires = $get['body']['expires'];
-                        $this->identifiers = $get['body']['identifiers'];
-                        $this->authorizationURLs = $get['body']['authorizations'];
-                        $this->finalizeURL = $get['body']['finalize'];
-                        if (array_key_exists('certificate', $get['body'])) {
-                            $this->certificateURL = $get['body']['certificate'];
-                        }
-                        $this->updateAuthorizations();
-                    }
-                } else {
-                    foreach ($this->certificateKeys as $file) {
-                        if (is_file($file)) {
-                            unlink($file);
-                        }
-                    }
-                    $this->log->warning(
-                        'Order data for \'' . $this->basename .
-                        '\' invalid. Deleting order data and creating new order.'
-                    );
-
-                    $this->createOrder($domains, $notBefore, $notAfter);
-                }
-            } else {
-                foreach ($this->certificateKeys as $file) {
-                    if (is_file($file)) {
-                        unlink($file);
-                    }
-                }
-                $this->log->warning(
-                    'Order data for \'' . $this->basename .
-                    '\' has invalid URL. Deleting order data and creating new order.'
-                );
-
-                $this->createOrder($domains, $notBefore, $notAfter);
-            }
-        } else {
-            $this->log->warning('No order found for \'' . $this->basename . '\'. Creating new order.');
-            $this->createOrder($domains, $notBefore, $notAfter);
         }
     }
 
@@ -408,12 +413,11 @@ class LEOrder
 
         $details = openssl_pkey_get_details($privateKey);
 
-        $header = array(
+        $header = [
             "e" => LEFunctions::base64UrlSafeEncode($details["rsa"]["e"]),
             "kty" => "RSA",
             "n" => LEFunctions::base64UrlSafeEncode($details["rsa"]["n"])
-
-        );
+        ];
         $digest = LEFunctions::base64UrlSafeEncode(hash('sha256', json_encode($header), true));
 
         foreach ($this->authorizations as $auth) {
@@ -424,63 +428,64 @@ class LEOrder
                         $keyAuthorization = $challenge['token'] . '.' . $digest;
                         switch ($type) {
                             case LEOrder::CHALLENGE_TYPE_HTTP:
-                                if (LEFunctions::checkHTTPChallenge(
-                                    $identifier,
-                                    $challenge['token'],
-                                    $keyAuthorization
-                                )
-                                ) {
-                                    $sign = $this->connector->signRequestKid(
-                                        ['keyAuthorization' => $keyAuthorization],
-                                        $this->connector->accountURL,
-                                        $challenge['url']
-                                    );
-                                    $post = $this->connector->post($challenge['url'], $sign);
-                                    if (strpos($post['header'], "200 OK") !== false) {
-                                        $this->log->notice('HTTP challenge for \'' . $identifier . '\' valid.');
-
-                                        while ($auth->status == 'pending') {
-                                            sleep(1);
-                                            $auth->updateData();
-                                        }
-                                        return true;
-                                    }
-                                } else {
-                                    $this->log->warning(
-                                        'HTTP challenge for \'' . $identifier . '\' tested, found invalid.'
-                                    );
-                                }
+                                return $this->verifyHTTPChallenge($identifier, $challenge, $keyAuthorization, $auth);
                                 break;
                             case LEOrder::CHALLENGE_TYPE_DNS:
-                                $DNSDigest = LEFunctions::base64UrlSafeEncode(
-                                    hash('sha256', $keyAuthorization, true)
-                                );
-                                if (LEFunctions::checkDNSChallenge($identifier, $DNSDigest)) {
-                                    $sign = $this->connector->signRequestKid(
-                                        ['keyAuthorization' => $keyAuthorization],
-                                        $this->connector->accountURL,
-                                        $challenge['url']
-                                    );
-                                    $post = $this->connector->post($challenge['url'], $sign);
-                                    if (strpos($post['header'], "200 OK") !== false) {
-                                        $this->log->notice('DNS challenge for \'' . $identifier . '\' valid.');
-
-                                        while ($auth->status == 'pending') {
-                                            sleep(1);
-                                            $auth->updateData();
-                                        }
-                                        return true;
-                                    }
-                                } else {
-                                    $this->log->warning(
-                                        'DNS challenge for \'' . $identifier . '\' tested, found invalid.'
-                                    );
-                                }
+                                return $this->verifyDNSChallenge($identifier, $challenge, $keyAuthorization, $auth);
                                 break;
                         }
                     }
                 }
             }
+        }
+        return false;
+    }
+
+    private function verifyDNSChallenge($identifier, array $challenge, $keyAuthorization, LEAuthorization $auth)
+    {
+        $DNSDigest = LEFunctions::base64UrlSafeEncode(hash('sha256', $keyAuthorization, true));
+        if (LEFunctions::checkDNSChallenge($identifier, $DNSDigest)) {
+            $sign = $this->connector->signRequestKid(
+                ['keyAuthorization' => $keyAuthorization],
+                $this->connector->accountURL,
+                $challenge['url']
+            );
+            $post = $this->connector->post($challenge['url'], $sign);
+            if (strpos($post['header'], "200 OK") !== false) {
+                $this->log->notice('DNS challenge for \'' . $identifier . '\' valid.');
+
+                while ($auth->status == 'pending') {
+                    sleep(1);
+                    $auth->updateData();
+                }
+                return true;
+            }
+        } else {
+            $this->log->warning('DNS challenge for \'' . $identifier . '\' tested, found invalid.');
+        }
+        return false;
+    }
+
+    private function verifyHTTPChallenge($identifier, array $challenge, $keyAuthorization, LEAuthorization $auth)
+    {
+        if (LEFunctions::checkHTTPChallenge($identifier, $challenge['token'], $keyAuthorization)) {
+            $sign = $this->connector->signRequestKid(
+                ['keyAuthorization' => $keyAuthorization],
+                $this->connector->accountURL,
+                $challenge['url']
+            );
+            $post = $this->connector->post($challenge['url'], $sign);
+            if (strpos($post['header'], "200 OK") !== false) {
+                $this->log->notice('HTTP challenge for \'' . $identifier . '\' valid.');
+
+                while ($auth->status == 'pending') {
+                    sleep(1);
+                    $auth->updateData();
+                }
+                return true;
+            }
+        } else {
+            $this->log->warning('HTTP challenge for \'' . $identifier . '\' tested, found invalid.');
         }
         return false;
     }
@@ -669,34 +674,7 @@ class LEOrder
         if ($this->status == 'valid' && !empty($this->certificateURL)) {
             $get = $this->connector->get($this->certificateURL);
             if (strpos($get['header'], "200 OK") !== false) {
-                if (preg_match_all(
-                    '~(-----BEGIN\sCERTIFICATE-----[\s\S]+?-----END\sCERTIFICATE-----)~i',
-                    $get['body'],
-                    $matches
-                )
-                ) {
-                    if (isset($this->certificateKeys['certificate'])) {
-                        file_put_contents($this->certificateKeys['certificate'], $matches[0][0]);
-                    }
-
-                    $matchCount = count($matches[0]);
-                    if ($matchCount > 1 && isset($this->certificateKeys['fullchain_certificate'])) {
-                        $fullchain = $matches[0][0] . "\n";
-
-                        for ($i = 1; $i < $matchCount; $i++) {
-                            $fullchain .= $matches[0][$i] . "\n";
-                        }
-                        file_put_contents(trim($this->certificateKeys['fullchain_certificate']), $fullchain);
-                    }
-                    $this->log->info('Certificate for \'' . $this->basename . '\' saved');
-
-                    return true;
-                } else {
-                    $this->log->warning(
-                        'Received invalid certificate for \'' . $this->basename .
-                        '\'. Cannot save certificate.'
-                    );
-                }
+                $this->writeCertificates($get['body']);
             } else {
                 $this->log->warning(
                     'Invalid response for certificate request for \'' . $this->basename .
@@ -711,6 +689,34 @@ class LEOrder
         return false;
     }
 
+
+    private function writeCertificates($body)
+    {
+        if (preg_match_all('~(-----BEGIN\sCERTIFICATE-----[\s\S]+?-----END\sCERTIFICATE-----)~i', $body, $matches)) {
+            if (isset($this->certificateKeys['certificate'])) {
+                file_put_contents($this->certificateKeys['certificate'], $matches[0][0]);
+            }
+
+            $matchCount = count($matches[0]);
+            if ($matchCount > 1 && isset($this->certificateKeys['fullchain_certificate'])) {
+                $fullchain = $matches[0][0] . "\n";
+
+                for ($i = 1; $i < $matchCount; $i++) {
+                    $fullchain .= $matches[0][$i] . "\n";
+                }
+                file_put_contents(trim($this->certificateKeys['fullchain_certificate']), $fullchain);
+            }
+            $this->log->info('Certificate for \'' . $this->basename . '\' saved');
+
+            return true;
+        }
+
+        $this->log->warning(
+            'Received invalid certificate for \'' . $this->basename .
+            '\'. Cannot save certificate.'
+        );
+        return false;
+    }
     /**
      * Revokes the certificate in the current LetsEncrypt Order instance, if existent. Unlike stated in the ACME draft,
      * the certificate revoke request cannot be signed with the account private key, and will be signed with the
