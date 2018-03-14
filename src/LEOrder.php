@@ -429,10 +429,8 @@ class LEOrder
                         switch ($type) {
                             case LEOrder::CHALLENGE_TYPE_HTTP:
                                 return $this->verifyHTTPChallenge($identifier, $challenge, $keyAuthorization, $auth);
-                                break;
                             case LEOrder::CHALLENGE_TYPE_DNS:
                                 return $this->verifyDNSChallenge($identifier, $challenge, $keyAuthorization, $auth);
-                                break;
                         }
                     }
                 }
