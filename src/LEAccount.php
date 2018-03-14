@@ -76,7 +76,7 @@ class LEAccount
         } else {
             $this->connector->accountURL = $this->getLEAccount();
         }
-        if ($this->connector->accountURL == false) {
+        if ($this->connector->accountURL === false) {
             throw new \RuntimeException('Account not found or deactivated.');
         }
         $this->getLEAccountData();
@@ -198,6 +198,11 @@ class LEAccount
             $this->accountKeys['public_key'].'.new'
         );
         $privateKey = openssl_pkey_get_private(file_get_contents($this->accountKeys['private_key'].'.new'));
+        if ($privateKey === false) {
+            $this->log->error('LEAccount::changeAccountKeys failed to open private key');
+            return false;
+        }
+
         $details = openssl_pkey_get_details($privateKey);
         $innerPayload = array('account' => $this->connector->accountURL, 'newKey' => array(
             "kty" => "RSA",
