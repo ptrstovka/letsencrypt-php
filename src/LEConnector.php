@@ -1,6 +1,13 @@
 <?php
+
 namespace Elphin\LEClient;
 
+use Elphin\LEClient\Exception\RuntimeException;
+use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Psr7\Request;
+use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\Psr7\Response;
+use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -57,18 +64,24 @@ class LEConnector
     /** @var LoggerInterface */
     private $log;
 
+    /** @var ClientInterface */
+    private $httpClient;
+
     /**
      * Initiates the LetsEncrypt Connector class.
      *
      * @param LoggerInterface $log
-     * @param string $baseURL    The LetsEncrypt server URL to make requests to.
+     * @param ClientInterface $httpClient
+     * @param string $baseURL The LetsEncrypt server URL to make requests to.
      * @param array $accountKeys Array containing location of account keys files.
      */
-    public function __construct(LoggerInterface $log, $baseURL, $accountKeys)
+    public function __construct(LoggerInterface $log, ClientInterface $httpClient, $baseURL, $accountKeys)
     {
         $this->baseURL = $baseURL;
         $this->accountKeys = $accountKeys;
         $this->log = $log;
+        $this->httpClient = $httpClient;
+
         $this->getLEDirectory();
         $this->getNewNonce();
     }
@@ -91,8 +104,10 @@ class LEConnector
      */
     private function getNewNonce()
     {
-        if (strpos($this->head($this->newNonce)['header'], "204 No Content") === false) {
-            throw new \RuntimeException('No new nonce.');
+        $result = $this->head($this->newNonce);
+
+        if ($result['status'] !== 204) {
+            throw new RuntimeException("No new nonce - fetched {$this->newNonce} got " . $result['header']);
         }
     }
 
@@ -100,78 +115,78 @@ class LEConnector
      * Makes a Curl request.
      *
      * @param string $method The HTTP method to use. Accepting GET, POST and HEAD requests.
-     * @param string $URL    The URL or partial URL to make the request to.
+     * @param string $URL The URL or partial URL to make the request to.
      *                       If it is partial, the baseURL will be prepended.
-     * @param string $data   The body to attach to a POST request. Expected as a JSON encoded string.
+     * @param string $data The body to attach to a POST request. Expected as a JSON encoded string.
      *
      * @return array Returns an array with the keys 'request', 'header' and 'body'.
      */
     private function request($method, $URL, $data = null)
     {
         if ($this->accountDeactivated) {
-            throw new \RuntimeException('The account was deactivated. No further requests can be made.');
+            throw new RuntimeException('The account was deactivated. No further requests can be made.');
         }
 
-        $headers = array('Accept: application/json', 'Content-Type: application/json');
         $requestURL = preg_match('~^http~', $URL) ? $URL : $this->baseURL . $URL;
-        $handle = curl_init();
-        curl_setopt($handle, CURLOPT_URL, $requestURL);
-        curl_setopt($handle, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($handle, CURLOPT_HEADER, true);
 
-        switch ($method) {
-            case 'GET':
-                break;
-            case 'POST':
-                curl_setopt($handle, CURLOPT_POST, true);
-                curl_setopt($handle, CURLOPT_POSTFIELDS, $data);
-                break;
-            case 'HEAD':
-                curl_setopt($handle, CURLOPT_CUSTOMREQUEST, 'HEAD');
-                curl_setopt($handle, CURLOPT_NOBODY, true);
-                break;
-            default:
-                throw new \RuntimeException('HTTP request ' . $method . ' not supported.');
-                break;
-        }
-        $response = curl_exec($handle);
-
-        if (curl_errno($handle)) {
-            throw new \RuntimeException('Curl: ' . curl_error($handle));
+        $hdrs = ['Accept' => 'application/json'];
+        if (!empty($data)) {
+            $hdrs['Content-Type'] = 'application/json';
         }
 
-        $header_size = curl_getinfo($handle, CURLINFO_HEADER_SIZE);
+        $request = new Request($method, $requestURL, $hdrs, $data);
 
-        $header = substr($response, 0, $header_size);
-        $body = substr($response, $header_size);
-        $jsonbody = json_decode($body, true);
+        try {
+            $response = $this->httpClient->send($request);
+        } catch (GuzzleException $e) {
+            throw new RuntimeException("$method $URL failed", 0, $e);
+        }
+
+        //TestResponseGenerator::dumpTestSimulation($method, $requestURL, $response);
+
+
+        $body = $response->getBody();
+
+        $header = $response->getStatusCode() . ' ' . $response->getReasonPhrase() . "\n";
+        $allHeaders = $response->getHeaders();
+        foreach ($allHeaders as $name => $values) {
+            foreach ($values as $value) {
+                $header .= "$name: $value\n";
+            }
+        }
+
+        $decoded = $body;
+        if ($response->getHeaderLine('Content-Type') === 'application/json') {
+            $decoded = json_decode($body, true);
+            if (!$decoded) {
+                throw new RuntimeException('Bad JSON received '.$body);
+            }
+        }
+
         $jsonresponse = [
             'request' => $method . ' ' . $requestURL,
             'header' => $header,
-            'body' => $jsonbody === null ? $body : $jsonbody,
-            'raw' => $body
+            'body' => $decoded,
+            'raw' => $body,
+            'status' => $response->getStatusCode()
         ];
 
-        $this->log->debug('LEConnector::request {request} body = {raw}', $jsonresponse);
+        $this->log->debug('LEConnector::request {request} got {status} header = {header} body = {raw}', $jsonresponse);
 
-        if ((
-                ($method == 'POST' or $method == 'GET') and
-                (strpos($header, "200 OK") === false) and
-                (strpos($header, "201 Created") === false)
-            )
+        $status = $response->getStatusCode();
+
+        if ((($method == 'POST' or $method == 'GET') and ($status != 200) and ($status != 201))
             or
-            ($method == 'HEAD' and (strpos($header, "204 No Content") === false))
+            ($method == 'HEAD' and ($status != 204))
         ) {
-            throw new \RuntimeException('Invalid response, header: ' . $header);
+            throw new RuntimeException("Invalid status $status for $method request");
         }
 
-        if (preg_match('~Replay\-Nonce: (\S+)~i', $header, $matches)) {
-            $this->nonce = trim($matches[1]);
-        } else {
-            if ($method == 'POST') {
-                $this->getNewNonce(); // Not expecting a new nonce with GET and HEAD requests.
-            }
+        if ($response->hasHeader('Replay-Nonce')) {
+            $this->nonce = $response->getHeader('Replay-Nonce')[0];
+            $this->log->debug("got new nonce " . $this->nonce);
+        } elseif ($method == 'POST') {
+            $this->getNewNonce(); // Not expecting a new nonce with GET and HEAD requests.
         }
 
         return $jsonresponse;
@@ -219,8 +234,8 @@ class LEConnector
     /**
      * Generates a JSON Web Key signature to attach to the request.
      *
-     * @param array|string  $payload The payload to add to the signature.
-     * @param string $url            The URL to use in the signature.
+     * @param array|string $payload The payload to add to the signature.
+     * @param string $url The URL to use in the signature.
      * @param string $privateKeyFile The private key to sign the request with. Defaults to 'private.pem'.
      *                               Defaults to accountKeys[private_key].
      *
@@ -254,7 +269,7 @@ class LEConnector
         );
         $protected64 = LEFunctions::base64UrlSafeEncode(json_encode($protected));
 
-        openssl_sign($protected64.'.'.$payload64, $signed, $privateKey, OPENSSL_ALGO_SHA256);
+        openssl_sign($protected64 . '.' . $payload64, $signed, $privateKey, OPENSSL_ALGO_SHA256);
         $signed64 = LEFunctions::base64UrlSafeEncode($signed);
 
         $data = [
@@ -269,9 +284,9 @@ class LEConnector
     /**
      * Generates a Key ID signature to attach to the request.
      *
-     * @param array|string $payload  The payload to add to the signature.
-     * @param string $kid            The Key ID to use in the signature.
-     * @param string $url            The URL to use in the signature.
+     * @param array|string $payload The payload to add to the signature.
+     * @param string $kid The Key ID to use in the signature.
+     * @param string $url The URL to use in the signature.
      * @param string $privateKeyFile The private key to sign the request with. Defaults to 'private.pem'.
      *                               Defaults to accountKeys[private_key].
      *
@@ -297,7 +312,7 @@ class LEConnector
         );
         $protected64 = LEFunctions::base64UrlSafeEncode(json_encode($protected));
 
-        openssl_sign($protected64.'.'.$payload64, $signed, $privateKey, OPENSSL_ALGO_SHA256);
+        openssl_sign($protected64 . '.' . $payload64, $signed, $privateKey, OPENSSL_ALGO_SHA256);
         $signed64 = LEFunctions::base64UrlSafeEncode($signed);
 
         $data = [
