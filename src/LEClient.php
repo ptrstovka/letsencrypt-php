@@ -98,6 +98,7 @@ class LEClient
         $certificateKeys = 'keys/',
         $accountKeys = '__account/'
     ) {
+    
         $this->log = $logger ?? new NullLogger();
 
         $this->initBaseUrl($acmeURL);
@@ -130,8 +131,10 @@ class LEClient
 
     private function validateKeyConfig($certificateKeys, $accountKeys)
     {
-        $ok = (is_array($certificateKeys) && is_array($accountKeys)) ||
-            (is_string($certificateKeys) && is_string($accountKeys));
+        $allArrays = is_array($certificateKeys) && is_array($accountKeys);
+        $allStrings = is_string($certificateKeys) && is_string($accountKeys);
+
+        $ok = $allArrays || $allStrings;
         if (!$ok) {
             throw new LogicException('certificateKeys and accountKeys must be both arrays, or both strings');
         }
@@ -140,78 +143,97 @@ class LEClient
     private function initCertificateKeys($certificateKeys)
     {
         if (is_string($certificateKeys)) {
-            if (!file_exists($certificateKeys)) {
-                mkdir($certificateKeys, 0777, true);
-                LEFunctions::createhtaccess($certificateKeys);
-            }
-
-            $this->certificateKeys = [
-                "public_key" => $certificateKeys . '/public.pem',
-                "private_key" => $certificateKeys . '/private.pem',
-                "certificate" => $certificateKeys . '/certificate.crt',
-                "fullchain_certificate" => $certificateKeys . '/fullchain.crt',
-                "order" => $certificateKeys . '/order'
-            ];
+            $this->initCertificateKeysFromString($certificateKeys);
         } else {
-            //it's an array
-            if (!isset($certificateKeys['certificate']) || !isset($certificateKeys['fullchain_certificate'])) {
-                throw new LogicException(
-                    'certificateKeys[certificate] or certificateKeys[fullchain_certificate] file path must be set'
-                );
-            }
-            if (!isset($certificateKeys['private_key'])) {
-                throw new LogicException('certificateKeys[private_key] file path must be set');
-            }
-            if (!isset($certificateKeys['order'])) {
-                $certificateKeys['order'] = dirname($certificateKeys['private_key']) . '/order';
-            }
-            if (!isset($certificateKeys['public_key'])) {
-                $certificateKeys['public_key'] = dirname($certificateKeys['private_key']) . '/public.pem';
-            }
-
-            foreach ($certificateKeys as $param => $file) {
-                $parentDir = dirname($file);
-                if (!is_dir($parentDir)) {
-                    throw new LogicException($parentDir . ' directory not found');
-                }
-            }
-
-            $this->certificateKeys = $certificateKeys;
+            $this->initCertificateKeysFromArray($certificateKeys);
         }
+    }
+
+    private function initCertificateKeysFromArray($certificateKeys)
+    {
+        if (!isset($certificateKeys['certificate']) || !isset($certificateKeys['fullchain_certificate'])) {
+            throw new LogicException(
+                'certificateKeys[certificate] or certificateKeys[fullchain_certificate] file path must be set'
+            );
+        }
+        if (!isset($certificateKeys['private_key'])) {
+            throw new LogicException('certificateKeys[private_key] file path must be set');
+        }
+        if (!isset($certificateKeys['order'])) {
+            $certificateKeys['order'] = dirname($certificateKeys['private_key']) . '/order';
+        }
+        if (!isset($certificateKeys['public_key'])) {
+            $certificateKeys['public_key'] = dirname($certificateKeys['private_key']) . '/public.pem';
+        }
+
+        foreach ($certificateKeys as $param => $file) {
+            $parentDir = dirname($file);
+            if (!is_dir($parentDir)) {
+                throw new LogicException($parentDir . ' directory not found');
+            }
+        }
+
+        $this->certificateKeys = $certificateKeys;
+    }
+
+    private function initCertificateKeysFromString($certificateKeys)
+    {
+        if (!file_exists($certificateKeys)) {
+            mkdir($certificateKeys, 0777, true);
+            LEFunctions::createhtaccess($certificateKeys);
+        }
+
+        $this->certificateKeys = [
+            "public_key" => $certificateKeys . '/public.pem',
+            "private_key" => $certificateKeys . '/private.pem',
+            "certificate" => $certificateKeys . '/certificate.crt',
+            "fullchain_certificate" => $certificateKeys . '/fullchain.crt',
+            "order" => $certificateKeys . '/order'
+        ];
     }
 
     private function initAccountKeys($certificateKeys, $accountKeys)
     {
         if (is_string($accountKeys)) {
-            $accountKeys = $certificateKeys . '/' . $accountKeys;
-
-            if (!file_exists($accountKeys)) {
-                mkdir($accountKeys, 0777, true);
-                LEFunctions::createhtaccess($accountKeys);
-            }
-
-            $this->accountKeys = [
-                "private_key" => $accountKeys . '/private.pem',
-                "public_key" => $accountKeys . '/public.pem'
-            ];
+            $this->initAccountKeysFromString($certificateKeys, $accountKeys);
         } else {
-            //it's an array
-            if (!isset($accountKeys['private_key'])) {
-                throw new LogicException('accountKeys[private_key] file path must be set');
-            }
-            if (!isset($accountKeys['public_key'])) {
-                throw new LogicException('accountKeys[public_key] file path must be set');
-            }
-
-            foreach ($accountKeys as $param => $file) {
-                $parentDir = dirname($file);
-                if (!is_dir($parentDir)) {
-                    throw new LogicException($parentDir . ' directory not found');
-                }
-            }
-
-            $this->accountKeys = $accountKeys;
+            $this->initAccountKeysFromArray($accountKeys);
         }
+    }
+
+    private function initAccountKeysFromString($certificateKeys, $accountKeys)
+    {
+        $accountKeys = $certificateKeys . '/' . $accountKeys;
+
+        if (!file_exists($accountKeys)) {
+            mkdir($accountKeys, 0777, true);
+            LEFunctions::createhtaccess($accountKeys);
+        }
+
+        $this->accountKeys = [
+            "private_key" => $accountKeys . '/private.pem',
+            "public_key" => $accountKeys . '/public.pem'
+        ];
+    }
+
+    private function initAccountKeysFromArray($accountKeys)
+    {
+        //it's an array
+        if (!isset($accountKeys['private_key'])) {
+            throw new LogicException('accountKeys[private_key] file path must be set');
+        }
+        if (!isset($accountKeys['public_key'])) {
+            throw new LogicException('accountKeys[public_key] file path must be set');
+        }
+
+        foreach ($accountKeys as $param => $file) {
+            $parentDir = dirname($file);
+            if (!is_dir($parentDir)) {
+                throw new LogicException($parentDir . ' directory not found');
+            }
+        }
+
+        $this->accountKeys = $accountKeys;
     }
 
     /**
