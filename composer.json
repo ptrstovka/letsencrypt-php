@@ -24,9 +24,9 @@
         }
     ],
     "require": {
-        "php" : "~7.1",
-        "ext-curl": "*",
+        "php": "~7.1",
         "ext-openssl": "*",
+        "guzzlehttp/guzzle": "~6.0",
         "psr/log": "^1.0"
     },
     "require-dev": {
