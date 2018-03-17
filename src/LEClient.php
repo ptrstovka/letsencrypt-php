@@ -2,7 +2,9 @@
 
 namespace Elphin\LEClient;
 
-use Psr\Log\LoggerAwareInterface;
+use Elphin\LEClient\Exception\LogicException;
+use GuzzleHttp\Client;
+use GuzzleHttp\ClientInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
@@ -41,7 +43,7 @@ use Psr\Log\NullLogger;
  * @link       https://github.com/yourivw/LEClient
  * @since      Class available since Release 1.0.0
  */
-class LEClient implements LoggerAwareInterface
+class LEClient
 {
     const LE_PRODUCTION = 'https://acme-v02.api.letsencrypt.org';
     const LE_STAGING = 'https://acme-staging-v02.api.letsencrypt.org';
@@ -57,6 +59,17 @@ class LEClient implements LoggerAwareInterface
     /** @var LoggerInterface */
     private $log;
 
+    /** @var ClientInterface */
+    private $httpClient;
+
+    /** @var DNS */
+    private $dns;
+
+    /** @var Sleep */
+    private $sleep;
+
+    private $email;
+
     /**
      * Initiates the LetsEncrypt main client.
      *
@@ -65,6 +78,8 @@ class LEClient implements LoggerAwareInterface
      * @param string|bool $acmeURL ACME URL, can be string or one of predefined values: LE_STAGING or LE_PRODUCTION.
      *                                Defaults to LE_STAGING. Can also pass true/false for staging/production
      * @param LoggerInterface $logger PSR-3 compatible logger
+     * @param ClientInterface|null $httpClient you can pass a custom client used for HTTP requests, if null is passed
+     *                                one will be created
      * @param string|array $certificateKeys The main directory in which all keys (and certificates), including account
      *                                keys are stored. Defaults to 'keys/'. (optional)
      *                                Alternatively, can pass array containing location of all certificate files.
@@ -79,49 +94,73 @@ class LEClient implements LoggerAwareInterface
         $email,
         $acmeURL = LEClient::LE_STAGING,
         LoggerInterface $logger = null,
+        ClientInterface $httpClient = null,
         $certificateKeys = 'keys/',
         $accountKeys = '__account/'
     ) {
         $this->log = $logger ?? new NullLogger();
 
+        $this->initBaseUrl($acmeURL);
+        $this->validateKeyConfig($certificateKeys, $accountKeys);
+
+        $this->initCertificateKeys($certificateKeys);
+        $this->initAccountKeys($certificateKeys, $accountKeys);
+
+        $this->httpClient = $httpClient ?? new Client();
+        $this->dns = new DNS;
+        $this->sleep = new Sleep;
+        $this->email = $email;
+    }
+
+    private function initBaseUrl($acmeURL)
+    {
         if (is_bool($acmeURL)) {
             $this->baseURL = $acmeURL ? LEClient::LE_STAGING : LEClient::LE_PRODUCTION;
         } elseif (is_string($acmeURL)) {
             $this->baseURL = $acmeURL;
         } else {
-            throw new \RuntimeException('acmeURL must be set to string or bool (legacy)');
+            throw new LogicException('acmeURL must be set to string or bool (legacy)');
         }
+    }
 
-        if (is_array($certificateKeys) && is_string($accountKeys)) {
-            throw new \RuntimeException('when certificateKeys is array, accountKeys must be array also');
-        } elseif (is_array($accountKeys) && is_string($certificateKeys)) {
-            throw new \RuntimeException('when accountKeys is array, certificateKeys must be array also');
+    public function getBaseUrl()
+    {
+        return $this->baseURL;
+    }
+
+    private function validateKeyConfig($certificateKeys, $accountKeys)
+    {
+        $ok = (is_array($certificateKeys) && is_array($accountKeys)) ||
+            (is_string($certificateKeys) && is_string($accountKeys));
+        if (!$ok) {
+            throw new LogicException('certificateKeys and accountKeys must be both arrays, or both strings');
         }
+    }
 
-        $certificateKeysDir = '';
+    private function initCertificateKeys($certificateKeys)
+    {
         if (is_string($certificateKeys)) {
-            $certificateKeysDir = $certificateKeys;
-
             if (!file_exists($certificateKeys)) {
                 mkdir($certificateKeys, 0777, true);
                 LEFunctions::createhtaccess($certificateKeys);
             }
 
-            $this->certificateKeys = array(
+            $this->certificateKeys = [
                 "public_key" => $certificateKeys . '/public.pem',
                 "private_key" => $certificateKeys . '/private.pem',
                 "certificate" => $certificateKeys . '/certificate.crt',
                 "fullchain_certificate" => $certificateKeys . '/fullchain.crt',
                 "order" => $certificateKeys . '/order'
-            );
-        } elseif (is_array($certificateKeys)) {
-            if (!isset($certificateKeys['certificate']) && !isset($certificateKeys['fullchain_certificate'])) {
-                throw new \RuntimeException(
+            ];
+        } else {
+            //it's an array
+            if (!isset($certificateKeys['certificate']) || !isset($certificateKeys['fullchain_certificate'])) {
+                throw new LogicException(
                     'certificateKeys[certificate] or certificateKeys[fullchain_certificate] file path must be set'
                 );
             }
             if (!isset($certificateKeys['private_key'])) {
-                throw new \RuntimeException('certificateKeys[private_key] file path must be set');
+                throw new LogicException('certificateKeys[private_key] file path must be set');
             }
             if (!isset($certificateKeys['order'])) {
                 $certificateKeys['order'] = dirname($certificateKeys['private_key']) . '/order';
@@ -133,59 +172,74 @@ class LEClient implements LoggerAwareInterface
             foreach ($certificateKeys as $param => $file) {
                 $parentDir = dirname($file);
                 if (!is_dir($parentDir)) {
-                    throw new \RuntimeException($parentDir . ' directory not found');
+                    throw new LogicException($parentDir . ' directory not found');
                 }
             }
 
             $this->certificateKeys = $certificateKeys;
-        } else {
-            throw new \RuntimeException('certificateKeys must be string or array');
         }
+    }
 
+    private function initAccountKeys($certificateKeys, $accountKeys)
+    {
         if (is_string($accountKeys)) {
-            $accountKeys = $certificateKeysDir . '/' . $accountKeys;
+            $accountKeys = $certificateKeys . '/' . $accountKeys;
 
             if (!file_exists($accountKeys)) {
                 mkdir($accountKeys, 0777, true);
                 LEFunctions::createhtaccess($accountKeys);
             }
 
-            $this->accountKeys = array(
+            $this->accountKeys = [
                 "private_key" => $accountKeys . '/private.pem',
                 "public_key" => $accountKeys . '/public.pem'
-            );
-        } elseif (is_array($accountKeys)) {
+            ];
+        } else {
+            //it's an array
             if (!isset($accountKeys['private_key'])) {
-                throw new \RuntimeException('accountKeys[private_key] file path must be set');
+                throw new LogicException('accountKeys[private_key] file path must be set');
             }
             if (!isset($accountKeys['public_key'])) {
-                throw new \RuntimeException('accountKeys[public_key] file path must be set');
+                throw new LogicException('accountKeys[public_key] file path must be set');
             }
 
             foreach ($accountKeys as $param => $file) {
                 $parentDir = dirname($file);
                 if (!is_dir($parentDir)) {
-                    throw new \RuntimeException($parentDir . ' directory not found');
+                    throw new LogicException($parentDir . ' directory not found');
                 }
             }
 
             $this->accountKeys = $accountKeys;
-        } else {
-            throw new \RuntimeException('accountKeys must be string or array');
         }
-
-
-        $this->connector = new LEConnector($this->log, $this->baseURL, $this->accountKeys);
-        $this->account = new LEAccount($this->connector, $this->log, $email, $this->accountKeys);
-        $this->log->debug('LEClient finished constructing');
     }
 
     /**
-     * @inheritdoc
+     * Inject alternative DNS resolver for testing
      */
-    public function setLogger(LoggerInterface $logger)
+    public function setDNS(DNS $dns)
     {
-        $this->log = $logger;
+        $this->dns = $dns;
+    }
+
+    /**
+     * Inject alternative sleep service for testing
+     */
+    public function setSleep(Sleep $sleep)
+    {
+        $this->sleep = $sleep;
+    }
+
+    private function getConnector()
+    {
+        if (!isset($this->connector)) {
+            $this->connector = new LEConnector($this->log, $this->httpClient, $this->baseURL, $this->accountKeys);
+
+            //we need to initialize an account before using the connector
+            $this->getAccount();
+        }
+
+        return $this->connector;
     }
 
     /**
@@ -195,6 +249,9 @@ class LEClient implements LoggerAwareInterface
      */
     public function getAccount()
     {
+        if (!isset($this->account)) {
+            $this->account = new LEAccount($this->getConnector(), $this->log, $this->email, $this->accountKeys);
+        }
         return $this->account;
     }
 
@@ -221,8 +278,10 @@ class LEClient implements LoggerAwareInterface
         $this->log->info("LEClient::getOrCreateOrder($basename,...)");
 
         return new LEOrder(
-            $this->connector,
+            $this->getConnector(),
             $this->log,
+            $this->dns,
+            $this->sleep,
             $this->certificateKeys,
             $basename,
             $domains,
