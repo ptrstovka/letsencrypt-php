@@ -451,28 +451,6 @@ class LEOrder
         return false;
     }
 
-    /**
-     * Checks whether the applicable DNS TXT record is a valid authorization for the given $domain.
-     *
-     * @param string    $domain     The domain to check the authorization for.
-     * @param string    $DNSDigest  The digest to compare the DNS record to.
-     *
-     * @return boolean  Returns true if the challenge is valid, false if not.
-     */
-    private function checkDNSChallenge($domain, $DNSDigest)
-    {
-        $hostname = '_acme-challenge.' . str_replace('*.', '', $domain);
-        $records = $this->dns->getTxtRecord($hostname);
-        foreach ($records as $record) {
-            if ($record['host'] == $hostname && $record['type'] == 'TXT' && $record['txt'] == $DNSDigest) {
-                return true;
-            }
-        }
-        echo "checking $domain wanted $DNSDigest\n";
-        return false;
-    }
-
-
     private function verifyDNSChallenge($identifier, array $challenge, $keyAuthorization, LEAuthorization $auth)
     {
         $DNSDigest = LEFunctions::base64UrlSafeEncode(hash('sha256', $keyAuthorization, true));
