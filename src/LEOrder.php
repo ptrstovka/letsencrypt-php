@@ -60,6 +60,12 @@ class LEOrder
 
     private $log;
 
+    /** @var DNS */
+    private $dns;
+
+    /** @var Sleep */
+    private $sleep;
+
 
     const CHALLENGE_TYPE_HTTP = 'http-01';
     const CHALLENGE_TYPE_DNS = 'dns-01';
@@ -71,6 +77,8 @@ class LEOrder
      *
      * @param LEConnector $connector The LetsEncrypt Connector instance to use for HTTP requests.
      * @param LoggerInterface $log PSR-3 compatible logger
+     * @param DNS $dns
+     * @param Sleep $sleep
      * @param array $certificateKeys Array containing location of certificate keys files.
      * @param string $basename The base name for the order. Preferable the top domain (example.org).
      *                               Will be the directory in which the keys are stored. Used for the CommonName in the
@@ -86,6 +94,8 @@ class LEOrder
     public function __construct(
         $connector,
         LoggerInterface $log,
+        DNS $dns,
+        Sleep $sleep,
         $certificateKeys,
         $basename,
         $domains,
@@ -93,10 +103,12 @@ class LEOrder
         $notBefore,
         $notAfter
     ) {
-    
+
         $this->connector = $connector;
         $this->basename = $basename;
         $this->log = $log;
+        $this->dns = $dns;
+        $this->sleep = $sleep;
         $this->certificateKeys = $certificateKeys;
 
         $this->initialiseKeyTypeAndSize($keyType ?? 'rsa-4096');
@@ -206,14 +218,14 @@ class LEOrder
         if (preg_match('~(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z|^$)~', $notBefore) and
             preg_match('~(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z|^$)~', $notAfter)
         ) {
-            $dns = array();
+            $dns = [];
             foreach ($domains as $domain) {
                 if (preg_match_all('~(\*\.)~', $domain) > 1) {
                     throw new \RuntimeException('Cannot create orders with multiple wildcards in one domain.');
                 }
-                $dns[] = array('type' => 'dns', 'value' => $domain);
+                $dns[] = ['type' => 'dns', 'value' => $domain];
             }
-            $payload = array("identifiers" => $dns, 'notBefore' => $notBefore, 'notAfter' => $notAfter);
+            $payload = ["identifiers" => $dns, 'notBefore' => $notBefore, 'notAfter' => $notAfter];
             $sign = $this->connector->signRequestKid(
                 $payload,
                 $this->connector->accountURL,
@@ -295,7 +307,7 @@ class LEOrder
      */
     private function updateAuthorizations()
     {
-        $this->authorizations = array();
+        $this->authorizations = [];
         foreach ($this->authorizationURLs as $authURL) {
             if (filter_var($authURL, FILTER_VALIDATE_URL)) {
                 $auth = new LEAuthorization($this->connector, $this->log, $authURL);
@@ -352,12 +364,12 @@ class LEOrder
         }
         $details = openssl_pkey_get_details($privateKey);
 
-        $header = array(
+        $header = [
             "e" => LEFunctions::base64UrlSafeEncode($details["rsa"]["e"]),
             "kty" => "RSA",
             "n" => LEFunctions::base64UrlSafeEncode($details["rsa"]["n"])
 
-        );
+        ];
         $digest = LEFunctions::base64UrlSafeEncode(hash('sha256', json_encode($header), true));
 
         foreach ($this->authorizations as $auth) {
@@ -439,10 +451,32 @@ class LEOrder
         return false;
     }
 
+    /**
+     * Checks whether the applicable DNS TXT record is a valid authorization for the given $domain.
+     *
+     * @param string    $domain     The domain to check the authorization for.
+     * @param string    $DNSDigest  The digest to compare the DNS record to.
+     *
+     * @return boolean  Returns true if the challenge is valid, false if not.
+     */
+    private function checkDNSChallenge($domain, $DNSDigest)
+    {
+        $hostname = '_acme-challenge.' . str_replace('*.', '', $domain);
+        $records = $this->dns->getTxtRecord($hostname);
+        foreach ($records as $record) {
+            if ($record['host'] == $hostname && $record['type'] == 'TXT' && $record['txt'] == $DNSDigest) {
+                return true;
+            }
+        }
+        echo "checking $domain wanted $DNSDigest\n";
+        return false;
+    }
+
+
     private function verifyDNSChallenge($identifier, array $challenge, $keyAuthorization, LEAuthorization $auth)
     {
         $DNSDigest = LEFunctions::base64UrlSafeEncode(hash('sha256', $keyAuthorization, true));
-        if (LEFunctions::checkDNSChallenge($identifier, $DNSDigest)) {
+        if ($this->dns->checkChallenge($identifier, $DNSDigest)) {
             $sign = $this->connector->signRequestKid(
                 ['keyAuthorization' => $keyAuthorization],
                 $this->connector->accountURL,
@@ -453,7 +487,7 @@ class LEOrder
                 $this->log->notice('DNS challenge for \'' . $identifier . '\' valid.');
 
                 while ($auth->status == 'pending') {
-                    sleep(1);
+                    $this->sleep->for(1);
                     $auth->updateData();
                 }
                 return true;
@@ -477,7 +511,7 @@ class LEOrder
                 $this->log->notice('HTTP challenge for \'' . $identifier . '\' valid.');
 
                 while ($auth->status == 'pending') {
-                    sleep(1);
+                    $this->sleep->for(1);
                     $auth->updateData();
                 }
                 return true;
@@ -665,7 +699,7 @@ class LEOrder
         while ($this->status == 'processing' && $polling < 4) {
             $this->log->info('Certificate for \'' . $this->basename . '\' being processed. Retrying in 5 seconds...');
 
-            sleep(5);
+            $this->sleep->for(5);
             $this->updateOrderData();
             $polling++;
         }
