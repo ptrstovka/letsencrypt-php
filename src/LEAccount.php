@@ -69,7 +69,7 @@ class LEAccount
         $this->log = $log;
 
         if (!file_exists($this->accountKeys['private_key']) or !file_exists($this->accountKeys['public_key'])) {
-            $this->log->notice("No account found for $email, attempting to create account");
+            $this->log->notice("No account found for ".implode(',', $email).", attempting to create account");
 
             LEFunctions::RSAgenerateKeys(null, $this->accountKeys['private_key'], $this->accountKeys['public_key']);
             $this->connector->accountURL = $this->createLEAccount($email);
@@ -115,7 +115,7 @@ class LEAccount
      */
     private function getLEAccount()
     {
-        $sign = $this->connector->signRequestJWK(array('onlyReturnExisting' => true), $this->connector->newAccount);
+        $sign = $this->connector->signRequestJWK(['onlyReturnExisting' => true], $this->connector->newAccount);
         $post = $this->connector->post($this->connector->newAccount, $sign);
 
         if (strpos($post['header'], "200 OK") !== false) {
@@ -204,11 +204,11 @@ class LEAccount
         }
 
         $details = openssl_pkey_get_details($privateKey);
-        $innerPayload = array('account' => $this->connector->accountURL, 'newKey' => array(
+        $innerPayload = ['account' => $this->connector->accountURL, 'newKey' => [
             "kty" => "RSA",
             "n" => LEFunctions::base64UrlSafeEncode($details["rsa"]["n"]),
             "e" => LEFunctions::base64UrlSafeEncode($details["rsa"]["e"])
-        ));
+        ]];
         $outerPayload = $this->connector->signRequestJWK(
             $innerPayload,
             $this->connector->keyChange,
