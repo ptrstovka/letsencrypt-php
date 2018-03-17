@@ -15,7 +15,7 @@ class DiagnosticLogger extends AbstractLogger
 {
     private $logs = [];
 
-    public function log($level, $message, array $context = array())
+    public function log($level, $message, array $context = [])
     {
         $this->logs[] = [$level, $message, $context];
     }
@@ -55,7 +55,7 @@ class DiagnosticLogger extends AbstractLogger
         $html .= "</tbody></table></div>\n";
 
         if ($echo) {
-            echo $html;
+            echo $html; //@codeCoverageIgnore
         }
         return $html;
     }
