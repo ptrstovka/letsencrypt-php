@@ -188,26 +188,6 @@ class LEFunctions
         return (!empty($response) && $response == $keyAuthorization);
     }
 
-    /**
-     * Checks whether the applicable DNS TXT record is a valid authorization for the given $domain.
-     *
-     * @param string    $domain     The domain to check the authorization for.
-     * @param string    $DNSDigest  The digest to compare the DNS record to.
-     *
-     * @return boolean  Returns true if the challenge is valid, false if not.
-     * @codeCoverageIgnore
-     */
-    public static function checkDNSChallenge($domain, $DNSDigest)
-    {
-        $DNS = '_acme-challenge.' . str_replace('*.', '', $domain);
-        $records = dns_get_record($DNS, DNS_TXT);
-        foreach ($records as $record) {
-            if ($record['host'] == $DNS && $record['type'] == 'TXT' && $record['txt'] == $DNSDigest) {
-                return true;
-            }
-        }
-        return false;
-    }
 
 
 
