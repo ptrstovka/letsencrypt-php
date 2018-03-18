@@ -2,6 +2,8 @@
 
 namespace Elphin\LEClient;
 
+use Elphin\LEClient\Exception\LogicException;
+use Elphin\LEClient\Exception\RuntimeException;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -103,6 +105,7 @@ class LEOrder
         $notBefore,
         $notAfter
     ) {
+    
 
         $this->connector = $connector;
         $this->basename = $basename;
@@ -122,56 +125,57 @@ class LEOrder
 
     private function loadExistingOrder($domains)
     {
-        if (file_exists($this->certificateKeys['private_key']) and
-            file_exists($this->certificateKeys['order']) and
-            file_exists($this->certificateKeys['public_key'])
+        //anything to load?
+        if (!file_exists($this->certificateKeys['private_key']) ||
+            !file_exists($this->certificateKeys['order']) ||
+            !file_exists($this->certificateKeys['public_key'])
         ) {
-            $this->orderURL = file_get_contents($this->certificateKeys['order']);
-            if (filter_var($this->orderURL, FILTER_VALIDATE_URL)) {
-                $get = $this->connector->get($this->orderURL);
-                if (strpos($get['header'], "200 OK") !== false) {
-                    $orderdomains = array_map(function ($ident) {
-                        return $ident['value'];
-                    }, $get['body']['identifiers']);
-                    $diff = array_merge(array_diff($orderdomains, $domains), array_diff($domains, $orderdomains));
-                    if (empty($diff)) {
-                        //the order is good
-                        $this->status = $get['body']['status'];
-                        $this->expires = $get['body']['expires'];
-                        $this->identifiers = $get['body']['identifiers'];
-                        $this->authorizationURLs = $get['body']['authorizations'];
-                        $this->finalizeURL = $get['body']['finalize'];
-                        if (array_key_exists('certificate', $get['body'])) {
-                            $this->certificateURL = $get['body']['certificate'];
-                        }
-                        return true;
-                    } else {
-                        $this->log->warning(
-                            'Domains do not match order data. Deleting and creating new order.'
-                        );
-                    }
-                } else {
-                    $this->log->warning(
-                        'Order data for \'' . $this->basename .
-                        '\' invalid. Deleting order data and creating new order.'
-                    );
-                }
-            } else {
-                //the order URL is valid
-                $this->log->warning(
-                    'Order data for \'' . $this->basename .
-                    '\' has invalid URL. Deleting order data and creating new order.'
-                );
-            }
-
-            //order existed but had problems, clear it up...
-            $this->deleteOrderFiles();
-        } else {
-            //order doesn't exist, so we create one
-            $this->log->info('No order found for \'' . $this->basename . '\'. Creating new order.');
+            $this->log->info("No order found for {$this->basename}. Creating new order.");
+            return false;
         }
 
-        return false;
+        //valid URL?
+        $this->orderURL = file_get_contents($this->certificateKeys['order']);
+        if (!filter_var($this->orderURL, FILTER_VALIDATE_URL)) {
+            //@codeCoverageIgnoreStart
+            $this->log->warning("Order for {$this->basename} has invalid URL. Creating new order.");
+            $this->deleteOrderFiles();
+            return false;
+            //@codeCoverageIgnoreEnd
+        }
+
+        //retrieve the order
+        $get = $this->connector->get($this->orderURL);
+        if (strpos($get['header'], "200 OK") === false) {
+            //@codeCoverageIgnoreStart
+            $this->log->warning("Order for {$this->basename} invalid. Creating new order.");
+            $this->deleteOrderFiles();
+            return false;
+            //@codeCoverageIgnoreEnd
+        }
+
+        //ensure retrieved order matches our domains
+        $orderdomains = array_map(function ($ident) {
+            return $ident['value'];
+        }, $get['body']['identifiers']);
+        $diff = array_merge(array_diff($orderdomains, $domains), array_diff($domains, $orderdomains));
+        if (!empty($diff)) {
+            $this->log->warning('Domains do not match order data. Deleting and creating new order.');
+            $this->deleteOrderFiles();
+            return false;
+        }
+
+        //the order is good
+        $this->status = $get['body']['status'];
+        $this->expires = $get['body']['expires'];
+        $this->identifiers = $get['body']['identifiers'];
+        $this->authorizationURLs = $get['body']['authorizations'];
+        $this->finalizeURL = $get['body']['finalize'];
+        if (array_key_exists('certificate', $get['body'])) {
+            $this->certificateURL = $get['body']['certificate'];
+        }
+
+        return true;
     }
 
     private function deleteOrderFiles()
@@ -198,7 +202,7 @@ class LEOrder
                 $this->keyType = $keyTypeParts[0][1];
                 $this->keySize = intval($keyTypeParts[0][2]);
             } else {
-                throw new \RuntimeException('Key type \'' . $keyType . '\' not supported.');
+                throw new LogicException('Key type \'' . $keyType . '\' not supported.');
             }
         }
     }
@@ -221,7 +225,7 @@ class LEOrder
             $dns = [];
             foreach ($domains as $domain) {
                 if (preg_match_all('~(\*\.)~', $domain) > 1) {
-                    throw new \RuntimeException('Cannot create orders with multiple wildcards in one domain.');
+                    throw new LogicException('Cannot create orders with multiple wildcards in one domain.');
                 }
                 $dns[] = ['type' => 'dns', 'value' => $domain];
             }
@@ -244,15 +248,13 @@ class LEOrder
                             $this->certificateKeys['public_key'],
                             $this->keySize
                         );
-                    } elseif ($this->keyType == "ec") {
+                    } else {
                         LEFunctions::ECgenerateKeys(
                             null,
                             $this->certificateKeys['private_key'],
                             $this->certificateKeys['public_key'],
                             $this->keySize
                         );
-                    } else {
-                        throw new \RuntimeException('Key type \'' . $this->keyType . '\' not supported.');
                     }
 
                     $this->status = $post['body']['status'];
@@ -267,13 +269,13 @@ class LEOrder
 
                     $this->log->info('Created order for ' . $this->basename);
                 } else {
-                    throw new \RuntimeException('New-order returned invalid response.');
+                    throw new RuntimeException('New-order returned invalid response.');
                 }
             } else {
-                throw new \RuntimeException('Creating new order failed.');
+                throw new RuntimeException('Creating new order failed.');
             }
         } else {
-            throw new \RuntimeException(
+            throw new LogicException(
                 'notBefore and notAfter fields must be empty ' .
                 'or be a string similar to 0000-00-00T00:00:00Z'
             );
@@ -336,6 +338,29 @@ class LEOrder
         return false;
     }
 
+    private function loadAccountKey()
+    {
+        $privateKey = openssl_pkey_get_private(file_get_contents($this->connector->accountKeys['private_key']));
+        if ($privateKey === false) {
+            //@codeCoverageIgnoreStart
+            throw new RuntimeException("Failed load account key from ".$this->connector->accountKeys['private_key']);
+            //@codeCoverageIgnoreEnd
+        }
+        return $privateKey;
+    }
+
+
+    private function loadCertificateKey()
+    {
+        $privateKey = openssl_pkey_get_private(file_get_contents($this->certificateKeys['private_key']));
+        if ($privateKey === false) {
+            //@codeCoverageIgnoreStart
+            throw new RuntimeException("Failed load certificate key from ".$this->ccertificateKeys['private_key']);
+            //@codeCoverageIgnoreEnd
+        }
+        return $privateKey;
+    }
+
     /**
      * Get all pending LetsEncrypt Authorization instances and return the necessary data for verification.
      * The data in the return object depends on the $type.
@@ -357,11 +382,7 @@ class LEOrder
     {
         $authorizations = [];
 
-        $privateKey = openssl_pkey_get_private(file_get_contents($this->connector->accountKeys['private_key']));
-        if ($privateKey === false) {
-            $this->log->error('LEOrder::getPendingAuthorizations failed to load private key');
-            return false;
-        }
+        $privateKey = $this->loadAccountKey();
         $details = openssl_pkey_get_details($privateKey);
 
         $header = [
@@ -417,12 +438,7 @@ class LEOrder
      */
     public function verifyPendingOrderAuthorization($identifier, $type)
     {
-        $privateKey = openssl_pkey_get_private(file_get_contents($this->connector->accountKeys['private_key']));
-        if ($privateKey === false) {
-            $this->log->error('LEOrder::verifyPendingOrderAuthorization failed to load private key');
-            return false;
-        }
-
+        $privateKey = $this->loadAccountKey();
         $details = openssl_pkey_get_details($privateKey);
 
         $header = [
@@ -582,11 +598,7 @@ class LEOrder
 			keyUsage = nonRepudiation, digitalSignature, keyEncipherment'
         );
 
-        $privateKey = openssl_pkey_get_private(file_get_contents($this->certificateKeys['private_key']));
-        if ($privateKey === false) {
-            throw new \RuntimeException('LEOrder::generateCSR failed to load private key');
-        }
-
+        $privateKey = $this->loadCertificateKey();
         $csr = openssl_csr_new($dn, $privateKey, ['config' => $tmpConfPath, 'digest_alg' => 'sha256']);
         openssl_csr_export($csr, $csr);
         return $csr;
@@ -729,6 +741,7 @@ class LEOrder
         );
         return false;
     }
+
     /**
      * Revokes the certificate in the current LetsEncrypt Order instance, if existent. Unlike stated in the ACME draft,
      * the certificate revoke request cannot be signed with the account private key, and will be signed with the

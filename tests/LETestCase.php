@@ -4,6 +4,7 @@ namespace Elphin\LEClient;
 
 use GuzzleHttp\Psr7\Response;
 use PHPUnit\Framework\TestCase;
+use Prophecy\Argument;
 
 /**
  * This provides a variety of simulated ACME responses for test cases
@@ -14,6 +15,32 @@ use PHPUnit\Framework\TestCase;
  */
 class LETestCase extends TestCase
 {
+    /**
+     * Return DNS mock which will return success or failure for checkChallenge
+     * @param $success
+     * @return DNS
+     */
+    protected function mockDNS($success = true)
+    {
+        //mock DNS service which will pretend our challenges have been set
+        $dns = $this->prophesize(DNS::class);
+        $dns->checkChallenge(Argument::any(), Argument::any())
+            ->willReturn($success);
+
+        return $dns->reveal();
+    }
+
+    /**
+     * @return Sleep
+     */
+    protected function mockSleep()
+    {
+        //mock sleep service which, erm, won't sleep. Shave a few seconds off tests!
+        $sleep = $this->prophesize(Sleep::class);
+        $sleep->for(Argument::any())->willReturn(true);
+        return $sleep->reveal();
+    }
+
     /**
      * Recursive delete directory
      * @param $dir
@@ -210,22 +237,23 @@ JSON;
         return new Response(200, $headers, $body);
     }
 
-    /**
-     * Simulate response for POST https://acme-staging-v02.api.letsencrypt.org/acme/new-order
-     */
-    protected function postNewOrderResponse()
+    protected function getOrderJSON($valid = false)
     {
-        $date = new \DateTime;
-        $now = $date->format('D, j M Y H:i:s e');
-
         $expires = new \DateTime;
         $expires->add(new \DateInterval('P7D'));
         $isoExpires = $expires->format('c');
 
+        $status = $valid ? 'valid' : 'pending';
 
-        $body = <<<JSON
+        $cert='';
+        if ($valid) {
+            $cert = '"certificate": ' .
+                '"https://acme-staging-v02.api.letsencrypt.org/acme/cert/fae09c6dcdaf7aa198092b3170c69129a490",';
+        }
+
+        $json = <<<JSON
         {
-          "status": "pending",
+          "status": "$status",
           "expires": "$isoExpires",
           "identifiers": [
             {
@@ -241,10 +269,23 @@ JSON;
             "https://acme-staging-v02.api.letsencrypt.org/acme/authz/X2QaFXwrBz7VlN6zdKgm_jmiBctwVZgMZXks4YhfPng",
             "https://acme-staging-v02.api.letsencrypt.org/acme/authz/WDMI8oX6avFT_rEBfh-ZBMdZs3S-7li2l5gRrps4MXM"
           ],
+          $cert
           "finalize": "https://acme-staging-v02.api.letsencrypt.org/acme/finalize/5758369/94473"
         }
 JSON;
-        $body = trim($body);
+        $json = trim($json);
+        return $json;
+    }
+
+    /**
+     * Simulate response for POST https://acme-staging-v02.api.letsencrypt.org/acme/new-order
+     */
+    protected function postNewOrderResponse()
+    {
+        $date = new \DateTime;
+        $now = $date->format('D, j M Y H:i:s e');
+
+        $body = $this->getOrderJSON();
 
         $headers = [
             'Server' => 'nginx',
@@ -264,14 +305,8 @@ JSON;
         return new Response(201, $headers, $body);
     }
 
-    /**
-     * Simulate response for GET https://acme-staging-v02.api.letsencrypt.org/acme/authz/...
-     */
-    protected function getAuthzResponse($domain = 'test.example.org', $dnsValidated = false)
+    protected function getAuthzJSON($domain = 'test.example.org', $dnsValidated = false)
     {
-        $date = new \DateTime;
-        $now = $date->format('D, j M Y H:i:s e');
-
         $expires = new \DateTime;
         $expires->add(new \DateInterval('P7D'));
         $isoExpires = $expires->format('c');
@@ -291,7 +326,7 @@ REC;
 
         $prefix='https://acme-staging-v02.api.letsencrypt.org/acme/challenge';
 
-        $body = <<<JSON
+        $json = <<<JSON
         {
           "identifier": {
             "type": "dns",
@@ -316,7 +351,19 @@ REC;
           ]
         }
 JSON;
-        $body = trim($body);
+        $json = trim($json);
+        return $json;
+    }
+
+    /**
+     * Simulate response for GET https://acme-staging-v02.api.letsencrypt.org/acme/authz/...
+     */
+    protected function getAuthzResponse($domain = 'test.example.org', $dnsValidated = false)
+    {
+        $date = new \DateTime;
+        $now = $date->format('D, j M Y H:i:s e');
+
+        $body=$this->getAuthzJSON($domain, $dnsValidated);
 
         $headers = [
             'Server' => 'nginx',
@@ -423,14 +470,11 @@ JSON;
     }
 
     /**
-     * Simulate response for GET https://acme-staging-v02.api.letsencrypt.org/acme/cert/...
-     *
      * Note that certificate below is deliberate garbage - for testing, we don't need a real cert
+     * @return string
      */
-    protected function getCertResponse()
+    protected function getCertBody()
     {
-        $date = new \DateTime;
-        $now = $date->format('D, j M Y H:i:s e');
         $body = <<<CERT
 -----BEGIN CERTIFICATE-----
 MIIG4zCCBcugAwIBAgITAPrgnG3Nr3qhmAkrMXDGkSmkkDANBgkqhkiG9w0BAQsF
@@ -500,7 +544,17 @@ WzYlTWeUVsO40xJqhgUQRER9YLOLxJ0O6C8i0xFxAMKOtSdodMB3RIwt7RFQ0uyt
 n5Z5MqkYhlMI3J1tPRTp1nEt9fyGspBOO05gi148Qasp+3N+svqKomoQglNoAxU=
 -----END CERTIFICATE-----
 CERT;
-        $body=trim($body);
+        return trim($body);
+    }
+    /**
+     * Simulate response for GET https://acme-staging-v02.api.letsencrypt.org/acme/cert/...
+     *
+     */
+    protected function getCertResponse()
+    {
+        $date = new \DateTime;
+        $now = $date->format('D, j M Y H:i:s e');
+        $body = $this->getCertBody();
 
         $headers=[
             'Server' => 'nginx',
