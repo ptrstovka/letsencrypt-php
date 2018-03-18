@@ -79,6 +79,24 @@ class LEOrder
      * @param LoggerInterface $log PSR-3 compatible logger
      * @param DNS $dns DNS challenge checking service
      * @param Sleep $sleep Sleep service for polling
+     */
+    public function __construct(
+        LEConnector $connector,
+        LoggerInterface $log,
+        DNS $dns,
+        Sleep $sleep
+    ) {
+        $this->connector = $connector;
+        $this->log = $log;
+        $this->dns = $dns;
+        $this->sleep = $sleep;
+    }
+
+    /**
+     * Loads or updates an order. If the base name is found in the $keysDir directory, the order data is
+     * requested. If no order was found locally, if the request is invalid or when there is a change in domain names, a
+     * new order is created.
+     *
      * @param array $certificateKeys Array containing location of certificate keys files.
      * @param string $basename The base name for the order. Preferable the top domain (example.org).
      *                                         Will be the directory in which the keys are stored. Used for the
@@ -92,23 +110,9 @@ class LEOrder
      * @param string $notAfter A date string formatted like 0000-00-00T00:00:00Z (yyyy-mm-dd hh:mm:ss)
      *                                         until which the certificate is valid.
      */
-    public function __construct(
-        LEConnector $connector,
-        LoggerInterface $log,
-        DNS $dns,
-        Sleep $sleep,
-        array $certificateKeys,
-        $basename,
-        array $domains,
-        $keyType,
-        $notBefore,
-        $notAfter
-    ) {
-        $this->connector = $connector;
+    public function loadOrder(array $certificateKeys, $basename, array $domains, $keyType, $notBefore, $notAfter)
+    {
         $this->basename = $basename;
-        $this->log = $log;
-        $this->dns = $dns;
-        $this->sleep = $sleep;
         $this->certificateKeys = $certificateKeys;
         $this->initialiseKeyTypeAndSize($keyType ?? 'rsa-4096');
 

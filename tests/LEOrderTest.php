@@ -3,7 +3,6 @@
 namespace Elphin\LEClient;
 
 use Elphin\LEClient\Exception\LogicException;
-use Elphin\LEClient\Exception\RuntimeException;
 use Prophecy\Argument;
 use Psr\Log\NullLogger;
 
@@ -84,15 +83,17 @@ class LEOrderTest extends LETestCase
         $this->assertFileNotExists($files['public_key']);
 
         //this should create a new order
-        new LEOrder($conn, $log, $dns, $sleep, $files, $basename, $domains, $keyType, $notBefore, $notAfter);
+        $order = new LEOrder($conn, $log, $dns, $sleep);
+        $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
 
         $this->assertFileExists($files['public_key']);
 
         //if we construct again, it should load the existing order
-        $reload = new LEOrder($conn, $log, $dns, $sleep, $files, $basename, $domains, $keyType, $notBefore, $notAfter);
+        $order = new LEOrder($conn, $log, $dns, $sleep);
+        $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
 
         //it's enough to reach here without getting any exceptions
-        $this->assertNotNull($reload);
+        $this->assertNotNull($order);
     }
 
     public function testCreateWithValidatedOrder()
@@ -112,10 +113,12 @@ class LEOrderTest extends LETestCase
         $this->assertFileNotExists($files['public_key']);
 
         //this should create a new order
-        new LEOrder($conn, $log, $dns, $sleep, $files, $basename, $domains, $keyType, $notBefore, $notAfter);
+        $order = new LEOrder($conn, $log, $dns, $sleep);
+        $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
 
         //and reload the validated order for coverage!
-        $order = new LEOrder($conn, $log, $dns, $sleep, $files, $basename, $domains, $keyType, $notBefore, $notAfter);
+        $order = new LEOrder($conn, $log, $dns, $sleep);
+        $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
 
         //it's enough to reach here without getting any exceptions
         $this->assertNotNull($order);
@@ -137,13 +140,16 @@ class LEOrderTest extends LETestCase
         $this->assertFileNotExists($files['public_key']);
 
         //this should create a new order
-        new LEOrder($conn, $log, $dns, $sleep, $files, $basename, $domains, $keyType, $notBefore, $notAfter);
+        $order = new LEOrder($conn, $log, $dns, $sleep);
+        $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
 
         $this->assertFileExists($files['public_key']);
 
         //we construct again to get a reload, but with different domains
         $domains = ['example.com', 'test.example.com'];
-        $order = new LEOrder($conn, $log, $dns, $sleep, $files, $basename, $domains, $keyType, $notBefore, $notAfter);
+        $order = new LEOrder($conn, $log, $dns, $sleep);
+        $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
+
 
         //this is allowed - we will just create a new order for the given domains, so it's enough to reach
         //here without exception
@@ -167,7 +173,9 @@ class LEOrderTest extends LETestCase
         $notBefore = '';
         $notAfter = '';
 
-        new LEOrder($conn, $log, $dns, $sleep, $files, $basename, $domains, $keyType, $notBefore, $notAfter);
+        $order = new LEOrder($conn, $log, $dns, $sleep);
+        $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
+
     }
 
     /**
@@ -186,7 +194,9 @@ class LEOrderTest extends LETestCase
         $notBefore = '';
         $notAfter = '';
 
-        new LEOrder($conn, $log, $dns, $sleep, $files, $basename, $domains, $keyType, $notBefore, $notAfter);
+        $order = new LEOrder($conn, $log, $dns, $sleep);
+        $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
+
     }
 
     /**
@@ -205,7 +215,9 @@ class LEOrderTest extends LETestCase
         $notBefore = 'Hippopotamus';
         $notAfter = 'Primrose';
 
-        new LEOrder($conn, $log, $dns, $sleep, $files, $basename, $domains, $keyType, $notBefore, $notAfter);
+        $order = new LEOrder($conn, $log, $dns, $sleep);
+        $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
+
     }
 
     public function testCreateWithEC()
@@ -224,7 +236,8 @@ class LEOrderTest extends LETestCase
         $this->assertFileNotExists($files['public_key']);
 
         //this should create a new order
-        new LEOrder($conn, $log, $dns, $sleep, $files, $basename, $domains, $keyType, $notBefore, $notAfter);
+        $order = new LEOrder($conn, $log, $dns, $sleep);
+        $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
 
         $this->assertFileExists($files['public_key']);
     }
@@ -277,7 +290,8 @@ class LEOrderTest extends LETestCase
         $this->assertFileNotExists($files['public_key']);
 
         //this should create a new order
-        $order = new LEOrder($conn, $log, $dns, $sleep, $files, $basename, $domains, $keyType, $notBefore, $notAfter);
+        $order = new LEOrder($conn, $log, $dns, $sleep);
+        $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
 
         $this->assertFalse($order->allAuthorizationsValid());
     }
@@ -358,7 +372,8 @@ class LEOrderTest extends LETestCase
         $this->assertFileNotExists($files['public_key']);
 
         //this should create a new order
-        $order = new LEOrder($conn, $log, $dns, $sleep, $files, $basename, $domains, $keyType, $notBefore, $notAfter);
+        $order = new LEOrder($conn, $log, $dns, $sleep);
+        $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
 
         $ok = $order->getCertificate();
         $this->assertTrue($ok);
@@ -383,7 +398,8 @@ class LEOrderTest extends LETestCase
         $this->assertFileNotExists($files['public_key']);
 
         //this should create a new order
-        $order = new LEOrder($conn, $log, $dns, $sleep, $files, $basename, $domains, $keyType, $notBefore, $notAfter);
+        $order = new LEOrder($conn, $log, $dns, $sleep);
+        $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
 
         $ok = $order->getCertificate();
         $this->assertFalse($ok);
@@ -405,7 +421,8 @@ class LEOrderTest extends LETestCase
         $this->assertFileNotExists($files['public_key']);
 
         //this should create a new order
-        $order = new LEOrder($conn, $log, $dns, $sleep, $files, $basename, $domains, $keyType, $notBefore, $notAfter);
+        $order = new LEOrder($conn, $log, $dns, $sleep);
+        $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
 
         $ok = $order->getCertificate();
         $this->assertFalse($ok);
@@ -427,7 +444,8 @@ class LEOrderTest extends LETestCase
         $this->assertFileNotExists($files['public_key']);
 
         //this should create a new order
-        $order = new LEOrder($conn, $log, $dns, $sleep, $files, $basename, $domains, $keyType, $notBefore, $notAfter);
+        $order = new LEOrder($conn, $log, $dns, $sleep);
+        $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
 
         $ok = $order->getCertificate();
         $this->assertFalse($ok);

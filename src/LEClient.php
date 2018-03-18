@@ -299,17 +299,9 @@ class LEClient
     {
         $this->log->info("LEClient::getOrCreateOrder($basename,...)");
 
-        return new LEOrder(
-            $this->getConnector(),
-            $this->log,
-            $this->dns,
-            $this->sleep,
-            $this->certificateKeys,
-            $basename,
-            $domains,
-            $keyType,
-            $notBefore,
-            $notAfter
-        );
+        $order = new LEOrder($this->getConnector(), $this->log, $this->dns, $this->sleep);
+        $order->loadOrder($this->certificateKeys, $basename, $domains, $keyType, $notBefore, $notAfter);
+
+        return $order;
     }
 }
