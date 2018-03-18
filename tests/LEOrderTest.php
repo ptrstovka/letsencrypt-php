@@ -22,12 +22,14 @@ class LEOrderTest extends LETestCase
         $neworder=[];
         $neworder['header']='201 Created\r\nLocation: http://test.local/order/test';
         $neworder['body']=json_decode($this->getOrderJSON($valid), true);
+        $neworder['status']=201;
 
         $connector->post('http://test.local/new-order', Argument::any())
             ->willReturn($neworder);
 
         $authz1=[];
         $authz1['header']='200 OK';
+        $authz1['status']=200;
         $authz1['body']=json_decode($this->getAuthzJSON('example.org', $valid), true);
         $connector->get(
             'https://acme-staging-v02.api.letsencrypt.org/acme/authz/X2QaFXwrBz7VlN6zdKgm_jmiBctwVZgMZXks4YhfPng',
@@ -36,6 +38,7 @@ class LEOrderTest extends LETestCase
 
         $authz2=[];
         $authz2['header']='200 OK';
+        $authz2['status']=200;
         $authz2['body']=json_decode($this->getAuthzJSON('test.example.org', $valid), true);
         $connector->get(
             'https://acme-staging-v02.api.letsencrypt.org/acme/authz/WDMI8oX6avFT_rEBfh-ZBMdZs3S-7li2l5gRrps4MXM',
@@ -44,6 +47,7 @@ class LEOrderTest extends LETestCase
 
         $orderReq=[];
         $orderReq['header']='200 OK';
+        $orderReq['status']=200;
         $orderReq['body']=json_decode($this->getOrderJSON($valid), true);
         $connector->get("http://test.local/order/test")->willReturn($orderReq);
 
@@ -175,7 +179,6 @@ class LEOrderTest extends LETestCase
 
         $order = new LEOrder($conn, $log, $dns, $sleep);
         $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
-
     }
 
     /**
@@ -196,7 +199,6 @@ class LEOrderTest extends LETestCase
 
         $order = new LEOrder($conn, $log, $dns, $sleep);
         $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
-
     }
 
     /**
@@ -217,7 +219,6 @@ class LEOrderTest extends LETestCase
 
         $order = new LEOrder($conn, $log, $dns, $sleep);
         $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
-
     }
 
     public function testCreateWithEC()
@@ -258,6 +259,7 @@ class LEOrderTest extends LETestCase
 
         $neworder=[];
         $neworder['header']='201 Created\r\nLocation: http://test.local/order/test';
+        $neworder['status']=201;
         $neworder['body']=$order;
 
         $connector->post('http://test.local/new-order', Argument::any())
@@ -265,7 +267,9 @@ class LEOrderTest extends LETestCase
 
         $orderReq=[];
         $orderReq['header']='200 OK';
+        $orderReq['status']=200;
         $orderReq['body']=$order;
+
         $connector->get("http://test.local/order/test")->willReturn($orderReq);
 
         return $connector->reveal();
@@ -313,6 +317,7 @@ class LEOrderTest extends LETestCase
         //the new order is setup to be processing...
         $neworder=[];
         $neworder['header']='201 Created\r\nLocation: http://test.local/order/test';
+        $neworder['status']=201;
         $neworder['body']=json_decode($this->getOrderJSON($valid), true);
         $neworder['body']['status'] = 'processing';
 
@@ -321,6 +326,7 @@ class LEOrderTest extends LETestCase
 
         $authz1=[];
         $authz1['header']='200 OK';
+        $authz1['status']=200;
         $authz1['body']=json_decode($this->getAuthzJSON('example.org', $valid), true);
         $connector->get(
             'https://acme-staging-v02.api.letsencrypt.org/acme/authz/X2QaFXwrBz7VlN6zdKgm_jmiBctwVZgMZXks4YhfPng',
@@ -329,6 +335,7 @@ class LEOrderTest extends LETestCase
 
         $authz2=[];
         $authz2['header']='200 OK';
+        $authz2['status']=200;
         $authz2['body']=json_decode($this->getAuthzJSON('test.example.org', $valid), true);
         $connector->get(
             'https://acme-staging-v02.api.letsencrypt.org/acme/authz/WDMI8oX6avFT_rEBfh-ZBMdZs3S-7li2l5gRrps4MXM',
@@ -338,6 +345,7 @@ class LEOrderTest extends LETestCase
         //when the order is re-fetched, it's possibly valid
         $orderReq=[];
         $orderReq['header']='200 OK';
+        $orderReq['status']=200;
         $orderReq['body']=json_decode($this->getOrderJSON(true), true);
         if (!$eventuallyValid) {
             $orderReq['body']['status'] = 'processing';
@@ -346,6 +354,7 @@ class LEOrderTest extends LETestCase
 
         $certReq=[];
         $certReq['header']=$goodCertRequest ? '200 OK' : '500 Failed';
+        $certReq['status']=200;
         $certReq['body']=$garbage ? 'NOT-A-CERT' : $this->getCertBody();
         $connector->get("https://acme-staging-v02.api.letsencrypt.org/acme/cert/fae09c6dcdaf7aa198092b3170c69129a490")
             ->willReturn($certReq);

@@ -86,6 +86,7 @@ class LEOrder
         DNS $dns,
         Sleep $sleep
     ) {
+    
         $this->connector = $connector;
         $this->log = $log;
         $this->dns = $dns;
@@ -219,66 +220,60 @@ class LEOrder
      */
     private function createOrder($domains, $notBefore, $notAfter)
     {
-        if (preg_match('~(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z|^$)~', $notBefore) and
-            preg_match('~(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z|^$)~', $notAfter)
+        if (!preg_match('~(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z|^$)~', $notBefore) ||
+            !preg_match('~(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z|^$)~', $notAfter)
         ) {
-            $dns = [];
-            foreach ($domains as $domain) {
-                if (preg_match_all('~(\*\.)~', $domain) > 1) {
-                    throw new LogicException('Cannot create orders with multiple wildcards in one domain.');
-                }
-                $dns[] = ['type' => 'dns', 'value' => $domain];
+            throw new LogicException("notBefore and notAfter must be blank or iso-8601 datestamp");
+        }
+
+        $dns = [];
+        foreach ($domains as $domain) {
+            if (preg_match_all('~(\*\.)~', $domain) > 1) {
+                throw new LogicException('Cannot create orders with multiple wildcards in one domain.');
             }
-            $payload = ["identifiers" => $dns, 'notBefore' => $notBefore, 'notAfter' => $notAfter];
-            $sign = $this->connector->signRequestKid(
-                $payload,
-                $this->connector->accountURL,
-                $this->connector->newOrder
-            );
-            $post = $this->connector->post($this->connector->newOrder, $sign);
+            $dns[] = ['type' => 'dns', 'value' => $domain];
+        }
+        $payload = ["identifiers" => $dns, 'notBefore' => $notBefore, 'notAfter' => $notAfter];
+        $sign = $this->connector->signRequestKid(
+            $payload,
+            $this->connector->accountURL,
+            $this->connector->newOrder
+        );
+        $post = $this->connector->post($this->connector->newOrder, $sign);
+        if ($post['status'] !== 201) {
+            throw new RuntimeException('Creating new order failed.');
+        }
 
-            if (strpos($post['header'], "201 Created") !== false) {
-                if (preg_match('~Location: (\S+)~i', $post['header'], $matches)) {
-                    $this->orderURL = trim($matches[1]);
-                    file_put_contents($this->certificateKeys['order'], $this->orderURL);
-                    if ($this->keyType == "rsa") {
-                        LEFunctions::RSAgenerateKeys(
-                            null,
-                            $this->certificateKeys['private_key'],
-                            $this->certificateKeys['public_key'],
-                            $this->keySize
-                        );
-                    } else {
-                        LEFunctions::ECgenerateKeys(
-                            null,
-                            $this->certificateKeys['private_key'],
-                            $this->certificateKeys['public_key'],
-                            $this->keySize
-                        );
-                    }
+        if (!preg_match('~Location: (\S+)~i', $post['header'], $matches)) {
+            throw new RuntimeException('New-order returned invalid response.');
+        }
 
-                    $this->status = $post['body']['status'];
-                    $this->expires = $post['body']['expires'];
-                    $this->identifiers = $post['body']['identifiers'];
-                    $this->authorizationURLs = $post['body']['authorizations'];
-                    $this->finalizeURL = $post['body']['finalize'];
-                    if (array_key_exists('certificate', $post['body'])) {
-                        $this->certificateURL = $post['body']['certificate'];
-                    }
-                    $this->updateAuthorizations();
+        $this->orderURL = trim($matches[1]);
+        file_put_contents($this->certificateKeys['order'], $this->orderURL);
 
-                    $this->log->info('Created order for ' . $this->basename);
-                } else {
-                    throw new RuntimeException('New-order returned invalid response.');
-                }
-            } else {
-                throw new RuntimeException('Creating new order failed.');
-            }
+        $this->generateKeys();
+
+        $this->status = $post['body']['status'];
+        $this->expires = $post['body']['expires'];
+        $this->identifiers = $post['body']['identifiers'];
+        $this->authorizationURLs = $post['body']['authorizations'];
+        $this->finalizeURL = $post['body']['finalize'];
+        if (array_key_exists('certificate', $post['body'])) {
+            $this->certificateURL = $post['body']['certificate'];
+        }
+        $this->updateAuthorizations();
+
+        $this->log->info('Created order for ' . $this->basename);
+    }
+
+    private function generateKeys()
+    {
+        $private = $this->certificateKeys['private_key'];
+        $public = $this->certificateKeys['public_key'];
+        if ($this->keyType == "rsa") {
+            LEFunctions::RSAgenerateKeys(null, $private, $public, $this->keySize);
         } else {
-            throw new LogicException(
-                'notBefore and notAfter fields must be empty ' .
-                'or be a string similar to 0000-00-00T00:00:00Z'
-            );
+            LEFunctions::ECgenerateKeys(null, $private, $public, $this->keySize);
         }
     }
 
@@ -620,6 +615,7 @@ class LEOrder
         }
         return $CN;
     }
+
     /**
      * Checks, for redundancy, whether all authorizations are valid, and finalizes the order. Updates this LetsEncrypt
      * Order instance with the new data.
