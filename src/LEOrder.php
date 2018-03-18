@@ -36,12 +36,10 @@ use Psr\Log\LoggerInterface;
  * @author     Youri van Weegberg <youri@yourivw.nl>
  * @copyright  2018 Youri van Weegberg
  * @license    https://opensource.org/licenses/mit-license.php  MIT License
- * @version    1.1.0
- * @link       https://github.com/yourivw/LEClient
- * @since      Class available since Release 1.0.0
  */
 class LEOrder
 {
+    /** @var LEConnector */
     private $connector;
 
     private $basename;
@@ -60,6 +58,7 @@ class LEOrder
     public $finalizeURL;
     public $certificateURL;
 
+    /** @var LoggerInterface */
     private $log;
 
     /** @var DNS */
@@ -67,7 +66,6 @@ class LEOrder
 
     /** @var Sleep */
     private $sleep;
-
 
     const CHALLENGE_TYPE_HTTP = 'http-01';
     const CHALLENGE_TYPE_DNS = 'dns-01';
@@ -79,41 +77,39 @@ class LEOrder
      *
      * @param LEConnector $connector The LetsEncrypt Connector instance to use for HTTP requests.
      * @param LoggerInterface $log PSR-3 compatible logger
-     * @param DNS $dns
-     * @param Sleep $sleep
+     * @param DNS $dns DNS challenge checking service
+     * @param Sleep $sleep Sleep service for polling
      * @param array $certificateKeys Array containing location of certificate keys files.
      * @param string $basename The base name for the order. Preferable the top domain (example.org).
-     *                               Will be the directory in which the keys are stored. Used for the CommonName in the
-     *                               certificate as well.
+     *                                         Will be the directory in which the keys are stored. Used for the
+     *                                         CommonName in the certificate as well.
      * @param array $domains The array of strings containing the domain names on the certificate.
-     * @param string $keyType Type of the key we want to use for certificate. Can be provided in ALGO-SIZE format
-     *                               (ex. rsa-4096 or ec-256) or simple "rsa" and "ec" (using default sizes)
-     * @param string $notBefore A date string formatted like 0000-00-00T00:00:00Z (yyyy-mm-dd hh:mm:ss) at which
-     *                               the certificate becomes valid.
-     * @param string $notAfter A date string formatted like 0000-00-00T00:00:00Z (yyyy-mm-dd hh:mm:ss) until which
-     *                               the certificate is valid.
+     * @param string $keyType Type of the key we want to use for certificate. Can be provided in
+     *                                         ALGO-SIZE format (ex. rsa-4096 or ec-256) or simply "rsa" and "ec"
+     *                                         (using default sizes)
+     * @param string $notBefore A date string formatted like 0000-00-00T00:00:00Z (yyyy-mm-dd hh:mm:ss)
+     *                                         at which the certificate becomes valid.
+     * @param string $notAfter A date string formatted like 0000-00-00T00:00:00Z (yyyy-mm-dd hh:mm:ss)
+     *                                         until which the certificate is valid.
      */
     public function __construct(
-        $connector,
+        LEConnector $connector,
         LoggerInterface $log,
         DNS $dns,
         Sleep $sleep,
-        $certificateKeys,
+        array $certificateKeys,
         $basename,
-        $domains,
+        array $domains,
         $keyType,
         $notBefore,
         $notAfter
     ) {
-    
-
         $this->connector = $connector;
         $this->basename = $basename;
         $this->log = $log;
         $this->dns = $dns;
         $this->sleep = $sleep;
         $this->certificateKeys = $certificateKeys;
-
         $this->initialiseKeyTypeAndSize($keyType ?? 'rsa-4096');
 
         if ($this->loadExistingOrder($domains)) {
@@ -299,7 +295,9 @@ class LEOrder
             }
             $this->updateAuthorizations();
         } else {
-            $this->log->error('Cannot update data for order ' . $this->basename);
+            //@codeCoverageIgnoreStart
+            $this->log->error("Failed to fetch order for {$this->basename}");
+            //@codeCoverageIgnoreEnd
         }
     }
 
@@ -343,7 +341,7 @@ class LEOrder
         $privateKey = openssl_pkey_get_private(file_get_contents($this->connector->accountKeys['private_key']));
         if ($privateKey === false) {
             //@codeCoverageIgnoreStart
-            throw new RuntimeException("Failed load account key from ".$this->connector->accountKeys['private_key']);
+            throw new RuntimeException("Failed load account key from " . $this->connector->accountKeys['private_key']);
             //@codeCoverageIgnoreEnd
         }
         return $privateKey;
@@ -355,7 +353,7 @@ class LEOrder
         $privateKey = openssl_pkey_get_private(file_get_contents($this->certificateKeys['private_key']));
         if ($privateKey === false) {
             //@codeCoverageIgnoreStart
-            throw new RuntimeException("Failed load certificate key from ".$this->ccertificateKeys['private_key']);
+            throw new RuntimeException("Failed load certificate key from " . $this->certificateKeys['private_key']);
             //@codeCoverageIgnoreEnd
         }
         return $privateKey;
@@ -469,51 +467,61 @@ class LEOrder
 
     private function verifyDNSChallenge($identifier, array $challenge, $keyAuthorization, LEAuthorization $auth)
     {
+        //check it ourselves
         $DNSDigest = LEFunctions::base64UrlSafeEncode(hash('sha256', $keyAuthorization, true));
-        if ($this->dns->checkChallenge($identifier, $DNSDigest)) {
-            $sign = $this->connector->signRequestKid(
-                ['keyAuthorization' => $keyAuthorization],
-                $this->connector->accountURL,
-                $challenge['url']
-            );
-            $post = $this->connector->post($challenge['url'], $sign);
-            if (strpos($post['header'], "200 OK") !== false) {
-                $this->log->notice('DNS challenge for \'' . $identifier . '\' valid.');
-
-                while ($auth->status == 'pending') {
-                    $this->sleep->for(1);
-                    $auth->updateData();
-                }
-                return true;
-            }
-        } else {
-            $this->log->warning('DNS challenge for \'' . $identifier . '\' tested, found invalid.');
+        if (!$this->dns->checkChallenge($identifier, $DNSDigest)) {
+            $this->log->warning("DNS challenge for $identifier tested, found invalid.");
+            return false;
         }
-        return false;
+
+        //ask LE to check
+        $sign = $this->connector->signRequestKid(
+            ['keyAuthorization' => $keyAuthorization],
+            $this->connector->accountURL,
+            $challenge['url']
+        );
+        $post = $this->connector->post($challenge['url'], $sign);
+        if ($post['status'] !== 200) {
+            $this->log->warning("DNS challenge for $identifier valid, but failed to post to ACME service");
+            return false;
+        }
+
+        while ($auth->status == 'pending') {
+            $this->log->notice("DNS challenge for $identifier valid - waiting for confirmation");
+            $this->sleep->for(1);
+            $auth->updateData();
+        }
+        $this->log->notice("DNS challenge for $identifier validated");
+
+        return true;
     }
 
     private function verifyHTTPChallenge($identifier, array $challenge, $keyAuthorization, LEAuthorization $auth)
     {
-        if (LEFunctions::checkHTTPChallenge($identifier, $challenge['token'], $keyAuthorization)) {
-            $sign = $this->connector->signRequestKid(
-                ['keyAuthorization' => $keyAuthorization],
-                $this->connector->accountURL,
-                $challenge['url']
-            );
-            $post = $this->connector->post($challenge['url'], $sign);
-            if (strpos($post['header'], "200 OK") !== false) {
-                $this->log->notice('HTTP challenge for \'' . $identifier . '\' valid.');
-
-                while ($auth->status == 'pending') {
-                    $this->sleep->for(1);
-                    $auth->updateData();
-                }
-                return true;
-            }
-        } else {
-            $this->log->warning('HTTP challenge for \'' . $identifier . '\' tested, found invalid.');
+        if (!LEFunctions::checkHTTPChallenge($identifier, $challenge['token'], $keyAuthorization)) {
+            $this->log->warning("HTTP challenge for $identifier tested, found invalid.");
+            return false;
         }
-        return false;
+
+        $sign = $this->connector->signRequestKid(
+            ['keyAuthorization' => $keyAuthorization],
+            $this->connector->accountURL,
+            $challenge['url']
+        );
+
+        $post = $this->connector->post($challenge['url'], $sign);
+        if ($post['status'] !== 200) {
+            $this->log->warning("HTTP challenge for $identifier valid, but failed to post to ACME service");
+            return false;
+        }
+
+        while ($auth->status == 'pending') {
+            $this->log->notice("HTTP challenge for $identifier valid - waiting for confirmation");
+            $this->sleep->for(1);
+            $auth->updateData();
+        }
+        $this->log->notice("HTTP challenge for $identifier validated");
+        return true;
     }
 
     /**
@@ -559,24 +567,17 @@ class LEOrder
         $domains = array_map(function ($dns) {
             return $dns['value'];
         }, $this->identifiers);
-        if (in_array($this->basename, $domains)) {
-            $CN = $this->basename;
-        } elseif (in_array('*.' . $this->basename, $domains)) {
-            $CN = '*.' . $this->basename;
-        } else {
-            $CN = $domains[0];
-        }
 
-        $dn = [
-            "commonName" => $CN
-        ];
+        $dn = ["commonName" => $this->calcCommonName($domains)];
 
         $san = implode(",", array_map(function ($dns) {
             return "DNS:" . $dns;
         }, $domains));
         $tmpConf = tmpfile();
         if ($tmpConf === false) {
-            throw new \RuntimeException('LEOrder::generateCSR failed to create tmp file');
+            //@codeCoverageIgnoreStart
+            throw new RuntimeException('LEOrder::generateCSR failed to create tmp file');
+            //@codeCoverageIgnoreEnd
         }
         $tmpConfMeta = stream_get_meta_data($tmpConf);
         $tmpConfPath = $tmpConfMeta["uri"];
@@ -604,6 +605,17 @@ class LEOrder
         return $csr;
     }
 
+    private function calcCommonName($domains)
+    {
+        if (in_array($this->basename, $domains)) {
+            $CN = $this->basename;
+        } elseif (in_array('*.' . $this->basename, $domains)) {
+            $CN = '*.' . $this->basename;
+        } else {
+            $CN = $domains[0];
+        }
+        return $CN;
+    }
     /**
      * Checks, for redundancy, whether all authorizations are valid, and finalizes the order. Updates this LetsEncrypt
      * Order instance with the new data.
