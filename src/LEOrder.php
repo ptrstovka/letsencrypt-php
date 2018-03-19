@@ -742,16 +742,25 @@ class LEOrder
                 }
                 file_put_contents(trim($this->certificateKeys['fullchain_certificate']), $fullchain);
             }
-            $this->log->info('Certificate for \'' . $this->basename . '\' saved');
-
+            $this->log->info("Certificate for {$this->basename} stored");
             return true;
         }
 
-        $this->log->warning(
-            'Received invalid certificate for \'' . $this->basename .
-            '\'. Cannot save certificate.'
-        );
+        $this->log->error("Received invalid certificate for {$this->basename}, cannot save");
         return false;
+    }
+
+    private function getCertificateFile()
+    {
+        if (isset($this->certificateKeys['certificate'])) {
+            return $this->certificateKeys['certificate'];
+        } elseif (isset($this->certificateKeys['fullchain_certificate'])) {
+            return $this->certificateKeys['fullchain_certificate'];
+        }
+
+        throw new RuntimeException(
+            'certificateKeys[certificate] or certificateKeys[fullchain_certificate] required'
+        );
     }
 
     /**
@@ -766,45 +775,29 @@ class LEOrder
      */
     public function revokeCertificate($reason = 0)
     {
-        if ($this->status == 'valid') {
-            if (isset($this->certificateKeys['certificate'])) {
-                $certFile = $this->certificateKeys['certificate'];
-            } elseif (isset($this->certificateKeys['fullchain_certificate'])) {
-                $certFile = $this->certificateKeys['fullchain_certificate'];
-            } else {
-                throw new \RuntimeException(
-                    'certificateKeys[certificate] or certificateKeys[fullchain_certificate] required'
-                );
-            }
-
-            if (file_exists($certFile) && file_exists($this->certificateKeys['private_key'])) {
-                $certificate = file_get_contents($this->certificateKeys['certificate']);
-                preg_match('~-----BEGIN\sCERTIFICATE-----(.*)-----END\sCERTIFICATE-----~s', $certificate, $matches);
-                $certificate = trim(LEFunctions::base64UrlSafeEncode(base64_decode(trim($matches[1]))));
-
-                $sign = $this->connector->signRequestJWK(
-                    ['certificate' => $certificate, 'reason' => $reason],
-                    $this->connector->revokeCert
-                );
-                $post = $this->connector->post($this->connector->revokeCert, $sign);
-                if (strpos($post['header'], "200 OK") !== false) {
-                    $this->log->info('Certificate for order \'' . $this->basename . '\' revoked.');
-                    return true;
-                } else {
-                    $this->log->warning('Certificate for order \'' . $this->basename . '\' cannot be revoked.');
-                }
-            } else {
-                $this->log->warning(
-                    'Certificate for order \'' . $this->basename .
-                    '\' not found. Cannot revoke certificate.'
-                );
-            }
-        } else {
-            $this->log->warning(
-                'Order for \'' . $this->basename .
-                '\' not valid. Cannot revoke certificate.'
-            );
+        if ($this->status != 'valid') {
+            $this->log->warning("Order for {$this->basename} not valid, cannot revoke");
+            return false;
         }
-        return false;
+
+        $certFile = $this->getCertificateFile();
+        if (!file_exists($certFile) || !file_exists($this->certificateKeys['private_key'])) {
+            $this->log->warning("Certificate for {$this->basename} not found, cannot revoke");
+            return false;
+        }
+
+        $certificate = file_get_contents($this->certificateKeys['certificate']);
+        preg_match('~-----BEGIN\sCERTIFICATE-----(.*)-----END\sCERTIFICATE-----~s', $certificate, $matches);
+        $certificate = trim(LEFunctions::base64UrlSafeEncode(base64_decode(trim($matches[1]))));
+
+        $sign = $this->connector->signRequestJWK(
+            ['certificate' => $certificate, 'reason' => $reason],
+            $this->connector->revokeCert,
+            $this->certificateKeys['private_key']
+        );
+        //4**/5** responses will throw an exception...
+        $this->connector->post($this->connector->revokeCert, $sign);
+        $this->log->info("Certificate for {$this->basename} successfully revoked");
+        return true;
     }
 }

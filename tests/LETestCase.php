@@ -570,4 +570,26 @@ CERT;
         ];
         return new Response(200, $headers, $body);
     }
+
+    /**
+     * Simulate response for POST https://acme-staging-v02.api.letsencrypt.org/acme/revoke-cert
+     */
+    protected function getRevokeCertResponse()
+    {
+        $date = new \DateTime;
+        $now = $date->format('D, j M Y H:i:s e');
+
+        $headers=[
+            'Server' => 'nginx',
+            'Replay-Nonce' => 'z4yMN4_LKg22VZzJZkUe5YuSiC0sknSuwIfC2GF-FOw',
+            'X-Frame-Options' => 'DENY',
+            'Strict-Transport-Security' => 'max-age=604800',
+            'Expires' => $now,
+            'Cache-Control' => 'max-age=0, no-cache, no-store',
+            'Pragma' => 'no-cache',
+            'Date' => $now,
+            'Connection' => 'keep-alive',
+        ];
+        return new Response(200, $headers);
+    }
 }

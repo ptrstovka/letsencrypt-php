@@ -3,6 +3,7 @@
 namespace Elphin\LEClient;
 
 use Elphin\LEClient\Exception\LogicException;
+use Elphin\LEClient\Exception\RuntimeException;
 use Prophecy\Argument;
 use Psr\Log\NullLogger;
 
@@ -310,9 +311,14 @@ class LEOrderTest extends LETestCase
 
         $connector = $this->prophesize(LEConnector::class);
         $connector->newOrder = 'http://test.local/new-order';
+        $connector->revokeCert = 'http://test.local/revoke-cert';
 
         $connector->signRequestKid(Argument::any(), Argument::any(), Argument::any())
             ->willReturn(json_encode(['protected'=>'','payload'=>'','signature'=>'']));
+
+        $connector->signRequestJWK(Argument::any(), Argument::any(), Argument::any())
+            ->willReturn(json_encode(['protected'=>'','payload'=>'','signature'=>'']));
+
 
         //the new order is setup to be processing...
         $neworder=[];
@@ -350,14 +356,24 @@ class LEOrderTest extends LETestCase
         if (!$eventuallyValid) {
             $orderReq['body']['status'] = 'processing';
         }
-        $connector->get("http://test.local/order/test")->willReturn($orderReq);
+        $connector->get('http://test.local/order/test')->willReturn($orderReq);
 
         $certReq=[];
         $certReq['header']=$goodCertRequest ? '200 OK' : '500 Failed';
         $certReq['status']=200;
         $certReq['body']=$garbage ? 'NOT-A-CERT' : $this->getCertBody();
-        $connector->get("https://acme-staging-v02.api.letsencrypt.org/acme/cert/fae09c6dcdaf7aa198092b3170c69129a490")
+        $connector->get('https://acme-staging-v02.api.letsencrypt.org/acme/cert/fae09c6dcdaf7aa198092b3170c69129a490')
             ->willReturn($certReq);
+
+        $revokeReq=[];
+        $revokeReq['header']='200 OK';
+        $revokeReq['status']=200;
+        $revokeReq['body']='';
+        $connector->post('http://test.local/revoke-cert', Argument::any())
+            ->willReturn($revokeReq);
+
+        $connector->post('http://test.local/bad-revoke-cert', Argument::any())
+            ->willThrow(new RuntimeException('Revocation failed'));
 
         return $connector->reveal();
     }
@@ -458,5 +474,114 @@ class LEOrderTest extends LETestCase
 
         $ok = $order->getCertificate();
         $this->assertFalse($ok);
+    }
+
+    public function testRevoke()
+    {
+        $conn = $this->mockConnectorForProcessingCert(true);
+        $log = new NullLogger();
+        $dns = $this->mockDNS(true);
+        $sleep = $this->mockSleep();
+        $files = $this->initCertFiles();
+        $basename='example.org';
+        $domains = ['example.org', 'test.example.org'];
+        $keyType = 'ec';
+        $notBefore = '';
+        $notAfter = '';
+
+        $this->assertFileNotExists($files['public_key']);
+
+        //this should create a new order
+        $order = new LEOrder($conn, $log, $dns, $sleep);
+        $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
+        $this->assertTrue($order->getCertificate());
+
+        $ok = $order->revokeCertificate();
+        $this->assertTrue($ok);
+    }
+
+    public function testRevokeIncompleteOrder()
+    {
+        $conn = $this->mockConnector();
+        $log = new NullLogger();
+        $dns = $this->mockDNS(true);
+        $sleep = $this->mockSleep();
+        $files = $this->initCertFiles();
+        $basename='example.org';
+        $domains = ['example.org', 'test.example.org'];
+        $keyType = 'rsa-4096';
+        $notBefore = '';
+        $notAfter = '';
+
+        $this->assertFileNotExists($files['public_key']);
+
+        //this should create a new order
+        $order = new LEOrder($conn, $log, $dns, $sleep);
+        $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
+
+        $this->assertFileExists($files['public_key']);
+
+        //can't revoke
+        $ok = $order->revokeCertificate();
+        $this->assertFalse($ok);
+    }
+
+    public function testRevokeMissingCertificate()
+    {
+        $conn = $this->mockConnectorForProcessingCert(true);
+        $log = new NullLogger();
+        $dns = $this->mockDNS(true);
+        $sleep = $this->mockSleep();
+        $files = $this->initCertFiles();
+        $basename='example.org';
+        $domains = ['example.org', 'test.example.org'];
+        $keyType = 'ec';
+        $notBefore = '';
+        $notAfter = '';
+
+        $this->assertFileNotExists($files['public_key']);
+
+        //this should create a new order
+        $order = new LEOrder($conn, $log, $dns, $sleep);
+        $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
+        $this->assertTrue($order->getCertificate());
+
+        //now we're going to remove the cert
+        $this->assertFileExists($files['certificate']);
+        unlink($files['certificate']);
+
+        $ok = $order->revokeCertificate();
+        $this->assertFalse($ok);
+    }
+
+    /**
+     * @expectedException RuntimeException
+     */
+    public function testRevokeFailure()
+    {
+        $conn = $this->mockConnectorForProcessingCert(true);
+
+        //we use an alternate URL for revocation which fails with a 403
+        $conn->revokeCert = 'http://test.local/bad-revoke-cert';
+
+        $log = new NullLogger();
+        $dns = $this->mockDNS(true);
+        $sleep = $this->mockSleep();
+        $files = $this->initCertFiles();
+        $basename='example.org';
+        $domains = ['example.org', 'test.example.org'];
+        $keyType = 'ec';
+        $notBefore = '';
+        $notAfter = '';
+
+        $this->assertFileNotExists($files['public_key']);
+
+        //this should create a new order
+        $order = new LEOrder($conn, $log, $dns, $sleep);
+        $order->loadOrder($files, $basename, $domains, $keyType, $notBefore, $notAfter);
+        $this->assertTrue($order->getCertificate());
+
+        //this should fail as we use a revocation url which simulates failure
+        $order->revokeCertificate();
     }
 }
