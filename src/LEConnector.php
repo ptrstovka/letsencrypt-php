@@ -140,22 +140,27 @@ class LEConnector
         try {
             $response = $this->httpClient->send($request);
         } catch (BadResponseException $e) {
-            $msg="$method $URL failed";
+            $msg = "$method $URL failed";
             if ($e->hasResponse()) {
-                $body=(string)$e->getResponse()->getBody();
-                $json=json_decode($body, true);
+                $body = (string)$e->getResponse()->getBody();
+                $json = json_decode($body, true);
                 if (!empty($json) && isset($json['detail'])) {
-                    $msg.=" ({$json['detail']})";
+                    $msg .= " ({$json['detail']})";
                 }
             }
             throw new RuntimeException($msg, 0, $e);
         } catch (GuzzleException $e) {
             throw new RuntimeException("$method $URL failed", 0, $e);
         }
-
         //TestResponseGenerator::dumpTestSimulation($method, $requestURL, $response);
 
+        $this->maintainNonce($method, $response);
 
+        return $this->formatResponse($method, $requestURL, $response);
+    }
+
+    private function formatResponse($method, $requestURL, ResponseInterface $response)
+    {
         $body = $response->getBody();
 
         $header = $response->getStatusCode() . ' ' . $response->getReasonPhrase() . "\n";
@@ -170,7 +175,7 @@ class LEConnector
         if ($response->getHeaderLine('Content-Type') === 'application/json') {
             $decoded = json_decode($body, true);
             if (!$decoded) {
-                throw new RuntimeException('Bad JSON received '.$body);
+                throw new RuntimeException('Bad JSON received ' . $body);
             }
         }
 
@@ -182,26 +187,19 @@ class LEConnector
             'status' => $response->getStatusCode()
         ];
 
-        $this->log->debug('LEConnector::request {request} got {status} header = {header} body = {raw}', $jsonresponse);
+        //$this->log->debug('{request} got {status} header = {header} body = {raw}', $jsonresponse);
 
-        $status = $response->getStatusCode();
+        return $jsonresponse;
+    }
 
-
-        if ((($method == 'POST' or $method == 'GET') and ($status != 200) and ($status != 201))
-            or
-            ($method == 'HEAD' and ($status != 204))
-        ) {
-            throw new RuntimeException("Invalid status $status for $method request");
-        }
-
+    private function maintainNonce($requestMethod, ResponseInterface $response)
+    {
         if ($response->hasHeader('Replay-Nonce')) {
             $this->nonce = $response->getHeader('Replay-Nonce')[0];
             $this->log->debug("got new nonce " . $this->nonce);
-        } elseif ($method == 'POST') {
+        } elseif ($requestMethod == 'POST') {
             $this->getNewNonce(); // Not expecting a new nonce with GET and HEAD requests.
         }
-
-        return $jsonresponse;
     }
 
     /**
