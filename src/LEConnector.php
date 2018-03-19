@@ -4,6 +4,7 @@ namespace Elphin\LEClient;
 
 use Elphin\LEClient\Exception\RuntimeException;
 use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Exception\BadResponseException;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Psr7\Response;
@@ -138,6 +139,16 @@ class LEConnector
 
         try {
             $response = $this->httpClient->send($request);
+        } catch (BadResponseException $e) {
+            $msg="$method $URL failed";
+            if ($e->hasResponse()) {
+                $body=(string)$e->getResponse()->getBody();
+                $json=json_decode($body, true);
+                if (!empty($json) && isset($json['detail'])) {
+                    $msg.=" ({$json['detail']})";
+                }
+            }
+            throw new RuntimeException($msg, 0, $e);
         } catch (GuzzleException $e) {
             throw new RuntimeException("$method $URL failed", 0, $e);
         }
@@ -174,6 +185,7 @@ class LEConnector
         $this->log->debug('LEConnector::request {request} got {status} header = {header} body = {raw}', $jsonresponse);
 
         $status = $response->getStatusCode();
+
 
         if ((($method == 'POST' or $method == 'GET') and ($status != 200) and ($status != 201))
             or
