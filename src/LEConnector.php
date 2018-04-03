@@ -2,12 +2,12 @@
 
 namespace Elphin\LEClient;
 
+use Elphin\LEClient\Exception\LogicException;
 use Elphin\LEClient\Exception\RuntimeException;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\BadResponseException;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Exception\GuzzleException;
-use GuzzleHttp\Psr7\Response;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
 
@@ -15,36 +15,9 @@ use Psr\Log\LoggerInterface;
  * LetsEncrypt Connector class, containing the functions necessary to sign with JSON Web Key and Key ID, and perform
  * GET, POST and HEAD requests.
  *
- * PHP version 7.1.0
- *
- * MIT License
- *
- * Copyright (c) 2018 Youri van Weegberg
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- *
  * @author     Youri van Weegberg <youri@yourivw.nl>
  * @copyright  2018 Youri van Weegberg
  * @license    https://opensource.org/licenses/mit-license.php  MIT License
- * @version    1.1.0
- * @link       https://github.com/yourivw/LEClient
- * @since      Class available since Release 1.0.0
  */
 class LEConnector
 {
@@ -108,7 +81,9 @@ class LEConnector
         $result = $this->head($this->newNonce);
 
         if ($result['status'] !== 204) {
+            //@codeCoverageIgnoreStart
             throw new RuntimeException("No new nonce - fetched {$this->newNonce} got " . $result['header']);
+            //@codeCoverageIgnoreEnd
         }
     }
 
@@ -125,14 +100,14 @@ class LEConnector
     private function request($method, $URL, $data = null)
     {
         if ($this->accountDeactivated) {
-            throw new RuntimeException('The account was deactivated. No further requests can be made.');
+            throw new LogicException('The account was deactivated. No further requests can be made.');
         }
 
         $requestURL = preg_match('~^http~', $URL) ? $URL : $this->baseURL . $URL;
 
         $hdrs = ['Accept' => 'application/json'];
         if (!empty($data)) {
-            $hdrs['Content-Type'] = 'application/json';
+            $hdrs['Content-Type'] = 'application/jose+json';
         }
 
         $request = new Request($method, $requestURL, $hdrs, $data);
@@ -140,6 +115,7 @@ class LEConnector
         try {
             $response = $this->httpClient->send($request);
         } catch (BadResponseException $e) {
+            //4xx/5xx failures are not expected and we throw exceptions for them
             $msg = "$method $URL failed";
             if ($e->hasResponse()) {
                 $body = (string)$e->getResponse()->getBody();
@@ -150,8 +126,12 @@ class LEConnector
             }
             throw new RuntimeException($msg, 0, $e);
         } catch (GuzzleException $e) {
+            //@codeCoverageIgnoreStart
             throw new RuntimeException("$method $URL failed", 0, $e);
+            //@codeCoverageIgnoreEnd
         }
+
+        //uncomment this to generate a test simulation of this request
         //TestResponseGenerator::dumpTestSimulation($method, $requestURL, $response);
 
         $this->maintainNonce($method, $response);
@@ -175,7 +155,9 @@ class LEConnector
         if ($response->getHeaderLine('Content-Type') === 'application/json') {
             $decoded = json_decode($body, true);
             if (!$decoded) {
+                //@codeCoverageIgnoreStart
                 throw new RuntimeException('Bad JSON received ' . $body);
+                //@codeCoverageIgnoreEnd
             }
         }
 
@@ -258,7 +240,9 @@ class LEConnector
         }
         $privateKey = openssl_pkey_get_private(file_get_contents($privateKeyFile));
         if ($privateKey === false) {
-            throw new \RuntimeException('LEConnector::signRequestJWK failed to get private key');
+            //@codeCoverageIgnoreStart
+            throw new RuntimeException('LEConnector::signRequestJWK failed to get private key');
+            //@codeCoverageIgnoreEnd
         }
 
         $details = openssl_pkey_get_details($privateKey);

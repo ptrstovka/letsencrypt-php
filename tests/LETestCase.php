@@ -127,12 +127,36 @@ JSON;
     }
 
     /**
-     * Simulate response for POST https://acme-staging-v02.api.letsencrypt.org/acme/new-acct
+     * Simulated response for a 404 which includes a JSON error
+     * @return Response
      */
-    protected function postNewAccountResponse()
+    protected function getMissingResponse()
+    {
+        $now = new \DateTime;
+        $nowFmt = $now->format('D, j M Y H:i:s e');
+
+        $body=['detail' => 'Requested object not found'];
+        $json = json_encode($body);
+
+        $headers = [
+            'Server' => 'nginx',
+            'X-Frame-Options' => 'DENY',
+            'Strict-Transport-Security' => 'max-age=604800',
+            'Expires' => $nowFmt,
+            'Cache-Control' => 'max-age=0, no-cache, no-store',
+            'Pragma' => 'no-cache',
+            'Date' => $nowFmt,
+            'Connection' => 'keep-alive',
+            'Content-Type' => 'application/json',
+            'Content-Length' => strlen($json),
+        ];
+
+        return new Response(404, $headers, $json);
+    }
+
+    protected function postNewAccountJSON()
     {
         $date = new \DateTime;
-        $now = $date->format('D, j M Y H:i:s e');
         $isoNow = $date->format('c');
 
         $n='35wpDxjGtu4o6AZVA1l4qaDhVUtpkW-iFSHXWzMJMyjVLj9kVN8ZMky6y47VwctZhX0WdL7PLKfJslVUnQkP0kXD_AIPHdMjgOHqlNR_'.
@@ -161,6 +185,17 @@ JSON;
         }
 JSON;
         $body = trim($body);
+        return $body;
+    }
+    /**
+     * Simulate response for POST https://acme-staging-v02.api.letsencrypt.org/acme/new-acct
+     */
+    protected function postNewAccountResponse()
+    {
+        $date = new \DateTime;
+        $now = $date->format('D, j M Y H:i:s e');
+
+        $body = $this->postNewAccountJSON();
 
         $headers = [
             'Server' => 'nginx',
