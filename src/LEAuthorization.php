@@ -1,41 +1,15 @@
 <?php
 namespace Elphin\LEClient;
 
+use Elphin\LEClient\Exception\RuntimeException;
 use Psr\Log\LoggerInterface;
 
 /**
  * LetsEncrypt Authorization class, getting LetsEncrypt authorization data associated with a LetsEncrypt Order instance.
  *
- * PHP version 7.1.0
- *
- * MIT License
- *
- * Copyright (c) 2018 Youri van Weegberg
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- *
  * @author     Youri van Weegberg <youri@yourivw.nl>
  * @copyright  2018 Youri van Weegberg
  * @license    https://opensource.org/licenses/mit-license.php  MIT License
- * @version    1.1.0
- * @link       https://github.com/yourivw/LEClient
- * @since      Class available since Release 1.0.0
  */
 class LEAuthorization
 {
@@ -62,15 +36,17 @@ class LEAuthorization
         $this->connector = $connector;
         $this->log = $log;
         $this->authorizationURL = $authorizationURL;
-        
+
         $get = $this->connector->get($this->authorizationURL);
-        if (strpos($get['header'], "200 OK") !== false) {
+        if ($get['status'] === 200) {
             $this->identifier = $get['body']['identifier'];
             $this->status = $get['body']['status'];
             $this->expires = $get['body']['expires'];
             $this->challenges = $get['body']['challenges'];
         } else {
+            //@codeCoverageIgnoreStart
             $this->log->error("LEAuthorization::__construct cannot find authorization $authorizationURL");
+            //@codeCoverageIgnoreEnd
         }
     }
     
@@ -81,13 +57,15 @@ class LEAuthorization
     public function updateData()
     {
         $get = $this->connector->get($this->authorizationURL);
-        if (strpos($get['header'], "200 OK") !== false) {
+        if ($get['status'] === 200) {
             $this->identifier = $get['body']['identifier'];
             $this->status = $get['body']['status'];
             $this->expires = $get['body']['expires'];
             $this->challenges = $get['body']['challenges'];
         } else {
-            $this->log->error("LEAuthorization::updateData cannot find authorization ".$this->authorizationURL);
+            //@codeCoverageIgnoreStart
+            $this->log->error("LEAuthorization::updateData cannot find authorization " . $this->authorizationURL);
+            //@codeCoverageIgnoreEnd
         }
     }
     
@@ -107,8 +85,10 @@ class LEAuthorization
                 return $challenge;
             }
         }
-        throw new \RuntimeException(
+        //@codeCoverageIgnoreStart
+        throw new RuntimeException(
             'No challenge found for type \'' . $type . '\' and identifier \'' . $this->identifier['value'] . '\'.'
         );
+        //@codeCoverageIgnoreEnd
     }
 }
