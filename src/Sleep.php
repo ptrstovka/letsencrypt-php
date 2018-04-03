@@ -5,7 +5,7 @@ namespace Elphin\LEClient;
 /**
  * In real world use, we want to sleep in between various actions. For testing, not so much.
  * So, we make it possible to inject a less sleepy service for testing
- * @package Elphin\LEClient
+ *
  * @codeCoverageIgnore
  */
 class Sleep
