@@ -1,41 +1,15 @@
 <?php
 namespace Elphin\LEClient;
 
+use Elphin\LEClient\Exception\RuntimeException;
 use Psr\Log\LoggerInterface;
 
 /**
  * LetsEncrypt Account class, containing the functions and data associated with a LetsEncrypt account.
  *
- * PHP version 7.1.0
- *
- * MIT License
- *
- * Copyright (c) 2018 Youri van Weegberg
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- *
  * @author     Youri van Weegberg <youri@yourivw.nl>
  * @copyright  2018 Youri van Weegberg
  * @license    https://opensource.org/licenses/mit-license.php  MIT License
- * @version    1.1.0
- * @link       https://github.com/yourivw/LEClient
- * @since      Class available since Release 1.0.0
  */
 class LEAccount
 {
@@ -77,7 +51,7 @@ class LEAccount
             $this->connector->accountURL = $this->getLEAccount();
         }
         if ($this->connector->accountURL === false) {
-            throw new \RuntimeException('Account not found or deactivated.');
+            throw new RuntimeException('Account not found or deactivated.');
         }
         $this->getLEAccountData();
     }
@@ -105,7 +79,9 @@ class LEAccount
                 return trim($matches[1]);
             }
         }
+        //@codeCoverageIgnoreStart
         return false;
+        //@codeCoverageIgnoreEnd
     }
 
     /**
@@ -141,12 +117,14 @@ class LEAccount
             $this->id = $post['body']['id'];
             $this->key = $post['body']['key'];
             $this->contact = $post['body']['contact'];
-            $this->agreement = $post['body']['agreement'];
+            $this->agreement = isset($post['body']['agreement']) ? $post['body']['agreement'] : null;
             $this->initialIp = $post['body']['initialIp'];
             $this->createdAt = $post['body']['createdAt'];
             $this->status = $post['body']['status'];
         } else {
-            throw new \RuntimeException('Account data cannot be found.');
+            //@codeCoverageIgnoreStart
+            throw new RuntimeException('Account data cannot be found.');
+            //@codeCoverageIgnoreEnd
         }
     }
 
@@ -169,20 +147,22 @@ class LEAccount
             $this->connector->accountURL
         );
         $post = $this->connector->post($this->connector->accountURL, $sign);
-        if (strpos($post['header'], "200 OK") !== false) {
-            $this->id = $post['body']['id'];
-            $this->key = $post['body']['key'];
-            $this->contact = $post['body']['contact'];
-            $this->agreement = $post['body']['agreement'];
-            $this->initialIp = $post['body']['initialIp'];
-            $this->createdAt = $post['body']['createdAt'];
-            $this->status = $post['body']['status'];
-
-            $this->log->notice('Account data updated');
-            return true;
-        } else {
-            return false;
+        if ($post['status'] !== 200) {
+            //@codeCoverageIgnoreStart
+            throw new RuntimeException('Unable to update account');
+            //@codeCoverageIgnoreEnd
         }
+
+        $this->id = $post['body']['id'];
+        $this->key = $post['body']['key'];
+        $this->contact = $post['body']['contact'];
+        $this->agreement = $post['body']['agreement'];
+        $this->initialIp = $post['body']['initialIp'];
+        $this->createdAt = $post['body']['createdAt'];
+        $this->status = $post['body']['status'];
+
+        $this->log->notice('Account data updated');
+        return true;
     }
 
     /**
@@ -199,8 +179,10 @@ class LEAccount
         );
         $privateKey = openssl_pkey_get_private(file_get_contents($this->accountKeys['private_key'].'.new'));
         if ($privateKey === false) {
+            //@codeCoverageIgnoreStart
             $this->log->error('LEAccount::changeAccountKeys failed to open private key');
             return false;
+            //@codeCoverageIgnoreEnd
         }
 
         $details = openssl_pkey_get_details($privateKey);
@@ -220,19 +202,21 @@ class LEAccount
             $this->connector->keyChange
         );
         $post = $this->connector->post($this->connector->keyChange, $sign);
-        if (strpos($post['header'], "200 OK") !== false) {
-            $this->getLEAccountData();
-
-            unlink($this->accountKeys['private_key']);
-            unlink($this->accountKeys['public_key']);
-            rename($this->accountKeys['private_key'].'.new', $this->accountKeys['private_key']);
-            rename($this->accountKeys['public_key'].'.new', $this->accountKeys['public_key']);
-
-            $this->log->notice('Account keys changed');
-            return true;
-        } else {
-            return false;
+        if ($post['status'] !== 200) {
+            //@codeCoverageIgnoreStart
+            throw new RuntimeException('Unable to post new account keys');
+            //@codeCoverageIgnoreEnd
         }
+
+        $this->getLEAccountData();
+
+        unlink($this->accountKeys['private_key']);
+        unlink($this->accountKeys['public_key']);
+        rename($this->accountKeys['private_key'].'.new', $this->accountKeys['private_key']);
+        rename($this->accountKeys['public_key'].'.new', $this->accountKeys['public_key']);
+
+        $this->log->notice('Account keys changed');
+        return true;
     }
 
     /**
@@ -248,12 +232,15 @@ class LEAccount
             $this->connector->accountURL
         );
         $post = $this->connector->post($this->connector->accountURL, $sign);
-        if (strpos($post['header'], "200 OK") !== false) {
-            $this->connector->accountDeactivated = true;
-            $this->log->info('Account deactivated');
-            return true;
+        if ($post['status'] !== 200) {
+            //@codeCoverageIgnoreStart
+            $this->log->error('Account deactivation failed');
+            return false;
+            //@codeCoverageIgnoreEnd
         }
 
-        return false;
+        $this->connector->accountDeactivated = true;
+        $this->log->info('Account deactivated');
+        return true;
     }
 }
