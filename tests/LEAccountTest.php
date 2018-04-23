@@ -1,8 +1,8 @@
 <?php
 
-namespace Elphin\LEClient;
+namespace Elphin\PHPCertificateToolbox;
 
-use Elphin\LEClient\Exception\RuntimeException;
+use Elphin\PHPCertificateToolbox\Exception\RuntimeException;
 use Prophecy\Argument;
 use Psr\Log\NullLogger;
 
@@ -10,7 +10,7 @@ use Psr\Log\NullLogger;
  * Tests LEAccount - because this was retrofitted to a class not really designed for testing, this
  * is a litle scrappy at present...
  *
- * @package Elphin\LEClient
+ * @package Elphin\PHPCertificateToolbox
  */
 class LEAccountTest extends LETestCase
 {

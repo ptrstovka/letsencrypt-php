@@ -1,12 +1,12 @@
 # Changelog
 
-All notable changes to `leclient` will be documented in this file.
+All notable changes to `php-certificate-toolbox` will be documented in this file.
 
 Updates should follow the [Keep a CHANGELOG](http://keepachangelog.com/) principles.
 
-## 0.1.0 - tba
+## 0.1.0 
 
-Conversion of [original client](https://github.com/yourivw/leclient) to be composer installable and PSR-2
-formatted. Some minor corrections made to declare missing member
-variables.
+First release after major refactoring of [LEClient](https://github.com/yourivw/leclient) 
+to be composer installable and testable, as well as support for alternative storage
+systems.
 

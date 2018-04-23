@@ -1,12 +1,12 @@
 <?php
 
-namespace Elphin\LEClient\DNSValidator;
+namespace Elphin\PHPCertificateToolbox\DNSValidator;
 
 /**
  * Interface DNSInterface provides a pluggable service for checking DNS challenges. Not only is
  * this useful for testing, you can swap in alternative implementations like using DNS-over-HTTPS
  *
- * @package Elphin\LEClient\DNSValidator
+ * @package Elphin\PHPCertificateToolbox\DNSValidator
  */
 interface DNSValidatorInterface
 {

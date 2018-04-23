@@ -1,7 +1,7 @@
 <?php
-namespace Elphin\LEClient;
+namespace Elphin\PHPCertificateToolbox;
 
-use Elphin\LEClient\Exception\RuntimeException;
+use Elphin\PHPCertificateToolbox\Exception\RuntimeException;
 use Psr\Log\LoggerInterface;
 
 /**

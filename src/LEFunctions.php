@@ -1,9 +1,9 @@
 <?php
 
-namespace Elphin\LEClient;
+namespace Elphin\PHPCertificateToolbox;
 
-use Elphin\LEClient\Exception\LogicException;
-use Elphin\LEClient\Exception\RuntimeException;
+use Elphin\PHPCertificateToolbox\Exception\LogicException;
+use Elphin\PHPCertificateToolbox\Exception\RuntimeException;
 
 /**
  * LetsEncrypt Functions class, supplying the LetsEncrypt Client with supportive functions.
@@ -115,16 +115,5 @@ class LEFunctions
             $input .= str_repeat('=', $padlen);
         }
         return base64_decode(strtr($input, '-_', '+/'));
-    }
-
-
-    /**
-     * Creates a simple .htaccess file in $directory which denies from all.
-     *
-     * @param string $directory The directory in which to put the .htaccess file.
-     */
-    public static function createhtaccess($directory)
-    {
-        file_put_contents($directory . '.htaccess', "order deny,allow\ndeny from all");
     }
 }

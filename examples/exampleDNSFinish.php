@@ -13,6 +13,10 @@ $basename = 'example.org';
 // Listing the domains to be included on the certificate
 $domains = array('example.org', 'test.example.org');
 
+$email = ['paul@elphin.com'];
+$basename = 'le.dixo.net';
+$domains=['le.dixo.net'];
+
 $logger = new DiagnosticLogger;
 
 // Initiating the client instance. In this case using the staging server (argument 2) and outputting all status and
@@ -43,6 +47,10 @@ if($order->allAuthorizationsValid())
 	if(!$order->isFinalized()) $order->finalizeOrder();
 	// Check whether the order has been finalized before we can get the certificate. If finalized, get the certificate.
 	if($order->isFinalized()) $order->getCertificate();
+
+	//finally, here's how we revoke
+    //echo "REVOKING...\n";
+    //$order->revokeCertificate();
 }
 
 

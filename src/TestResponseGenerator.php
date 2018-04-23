@@ -1,6 +1,6 @@
 <?php
 
-namespace Elphin\LEClient;
+namespace Elphin\PHPCertificateToolbox;
 
 use Psr\Http\Message\ResponseInterface;
 

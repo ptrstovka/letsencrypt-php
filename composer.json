@@ -1,5 +1,5 @@
 {
-    "name": "lordelph/leclient",
+    "name": "lordelph/php-certificate-toolbox",
     "type": "library",
     "description": "ACME v2 client for Let's Encrypt",
     "keywords": [
@@ -8,7 +8,7 @@
         "LE",
         "Certificate"
     ],
-    "homepage": "https://github.com/lordelph/leclient",
+    "homepage": "https://github.com/lordelph/php-certificate-toolbox",
     "license": "MIT",
     "authors": [
         {
@@ -38,12 +38,12 @@
     },
     "autoload": {
         "psr-4": {
-            "Elphin\\LEClient\\": "src"
+            "Elphin\\PHPCertificateToolbox\\": "src"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Elphin\\LEClient\\": "tests"
+            "Elphin\\PHPCertificateToolbox\\": "tests"
         }
     },
     "scripts": {

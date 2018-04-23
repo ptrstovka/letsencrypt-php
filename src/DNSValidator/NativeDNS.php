@@ -1,11 +1,11 @@
 <?php
 
-namespace Elphin\LEClient\DNSValidator;
+namespace Elphin\PHPCertificateToolbox\DNSValidator;
 
 /**
  * NativeDNS implements DNSValidatorInterface using locally available DNS services
  *
- * @package Elphin\LEClient
+ * @package Elphin\PHPCertificateToolbox
  * @codeCoverageIgnore
  */
 class NativeDNS implements DNSValidatorInterface

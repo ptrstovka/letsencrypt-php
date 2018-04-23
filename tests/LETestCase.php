@@ -1,8 +1,8 @@
 <?php
 
-namespace Elphin\LEClient;
+namespace Elphin\PHPCertificateToolbox;
 
-use Elphin\LEClient\DNSValidator\DNSValidatorInterface;
+use Elphin\PHPCertificateToolbox\DNSValidator\DNSValidatorInterface;
 use GuzzleHttp\Psr7\Response;
 use PHPUnit\Framework\TestCase;
 use Prophecy\Argument;
@@ -12,7 +12,7 @@ use Prophecy\Argument;
  *
  * The TestResponseGenerator can be used to create this from real traffic
  *
- * @package Elphin\LEClient
+ * @package Elphin\PHPCertificateToolbox
  */
 class LETestCase extends TestCase
 {

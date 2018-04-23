@@ -1,10 +1,10 @@
 <?php
 
-namespace Elphin\LEClient;
+namespace Elphin\PHPCertificateToolbox;
 
-use Elphin\LEClient\DNSValidator\DNSValidatorInterface;
-use Elphin\LEClient\Exception\LogicException;
-use Elphin\LEClient\Exception\RuntimeException;
+use Elphin\PHPCertificateToolbox\DNSValidator\DNSValidatorInterface;
+use Elphin\PHPCertificateToolbox\Exception\LogicException;
+use Elphin\PHPCertificateToolbox\Exception\RuntimeException;
 use Psr\Log\LoggerInterface;
 
 /**

@@ -1,9 +1,9 @@
 <?php
 
-namespace Elphin\LEClient;
+namespace Elphin\PHPCertificateToolbox;
 
-use Elphin\LEClient\Exception\LogicException;
-use Elphin\LEClient\Exception\RuntimeException;
+use Elphin\PHPCertificateToolbox\Exception\LogicException;
+use Elphin\PHPCertificateToolbox\Exception\RuntimeException;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\BadResponseException;
 use GuzzleHttp\Psr7\Request;

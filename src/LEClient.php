@@ -1,11 +1,11 @@
 <?php
 
-namespace Elphin\LEClient;
+namespace Elphin\PHPCertificateToolbox;
 
-use Elphin\LEClient\DNSValidator\DNSOverHTTPS;
-use Elphin\LEClient\DNSValidator\DNSValidatorInterface;
-use Elphin\LEClient\DNSValidator\NativeDNS;
-use Elphin\LEClient\Exception\LogicException;
+use Elphin\PHPCertificateToolbox\DNSValidator\DNSOverHTTPS;
+use Elphin\PHPCertificateToolbox\DNSValidator\DNSValidatorInterface;
+use Elphin\PHPCertificateToolbox\DNSValidator\NativeDNS;
+use Elphin\PHPCertificateToolbox\Exception\LogicException;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use Psr\Log\LoggerInterface;

@@ -1,12 +1,12 @@
 <?php
 
-namespace Elphin\LEClient;
+namespace Elphin\PHPCertificateToolbox;
 
-use Elphin\LEClient\Exception\RuntimeException;
+use Elphin\PHPCertificateToolbox\Exception\RuntimeException;
 
 /**
  * A default storage implementation which stores information in a local filesystem
- * @package Elphin\LEClient
+ * @package Elphin\PHPCertificateToolbox
  */
 class FilesystemCertificateStorage implements CertificateStorageInterface
 {

@@ -25,14 +25,14 @@
  * SOFTWARE.
  */
 
-namespace Elphin\LEClient\DNSValidator;
+namespace Elphin\PHPCertificateToolbox\DNSValidator;
 
 use GuzzleHttp\Client;
 use Psr\Http\Message\ResponseInterface;
 
 /**
  * DNSOverHTTPS implements DNSValidatorInterface using Google's DNS-over-HTTPS service
- * @package Elphin\LEClient\DNSValidator
+ * @package Elphin\PHPCertificateToolbox\DNSValidator
  * @codeCoverageIgnore
  */
 class DNSOverHTTPS implements DNSValidatorInterface

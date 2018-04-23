@@ -1,8 +1,8 @@
 <?php
 
-namespace Elphin\LEClient;
+namespace Elphin\PHPCertificateToolbox;
 
-use Elphin\LEClient\Exception\LogicException;
+use Elphin\PHPCertificateToolbox\Exception\LogicException;
 use PHPUnit\Framework\TestCase;
 
 class LEFunctionsTest extends TestCase
@@ -59,15 +59,6 @@ class LEFunctionsTest extends TestCase
 
         $plain = LEFunctions::base64UrlSafeDecode($encoded);
         $this->assertEquals('frumious~bandersnatch!', $plain);
-    }
-
-    public function testCreateHTAccess()
-    {
-        $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR;
-        $this->rm($tmp . '.htaccess');
-        LEFunctions::createhtaccess($tmp);
-        $this->assertFileExists($tmp . '.htaccess');
-        $this->rm($tmp . '.htaccess');
     }
 
     private function rm($file)

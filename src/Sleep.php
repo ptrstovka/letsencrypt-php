@@ -1,6 +1,6 @@
 <?php
 
-namespace Elphin\LEClient;
+namespace Elphin\PHPCertificateToolbox;
 
 /**
  * In real world use, we want to sleep in between various actions. For testing, not so much.

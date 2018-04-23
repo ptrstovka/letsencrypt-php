@@ -1,6 +1,6 @@
 <?php
 
-namespace Elphin\LEClient;
+namespace Elphin\PHPCertificateToolbox;
 
 /**
  * Interface CertificateStorageInterface
