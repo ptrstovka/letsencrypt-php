@@ -259,8 +259,10 @@ issue tracker.
 
 ## Credits
 
-- [Paul Dixon][link-author]
-- [Youri van Weegberg][link-author2]
+- [Paul Dixon][link-author] Refactoring inc unit tests and storage interface
+- [Youri van Weegberg][link-author2] Original PHP ACME2 client on which this is based
+- [wutno][link-author3] DNS-over-HTTPS support
+
 - [All Contributors][link-contributors]
 
 ## License
@@ -281,4 +283,5 @@ The MIT License (MIT). Please see [License File](LICENSE.md) for more informatio
 [link-downloads]: https://packagist.org/packages/lordelph/leclient
 [link-author]: https://github.com/lordelph
 [link-author2]: https://github.com/yourivw
+[link-author3]:https://github.com/GXTX
 [link-contributors]: ../../contributors
