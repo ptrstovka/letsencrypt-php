@@ -42,20 +42,6 @@ class DNSOverHTTPS implements DNSValidatorInterface
     const DNS_GOOGLE = 'https://dns.google.com/resolve';
 
     /**
-     * Domain to query
-     *
-     * @var $name string
-     */
-    public $name;
-
-    /**
-     * Type of query
-     *
-     * @var $type string
-     */
-    public $type;
-
-    /**
      * What DNS-over-HTTPS service to use
      *
      * @var null|string
