@@ -2,6 +2,9 @@
 
 namespace Elphin\LEClient;
 
+use Elphin\LEClient\DNSValidator\DNSOverHTTPS;
+use Elphin\LEClient\DNSValidator\DNSValidatorInterface;
+use Elphin\LEClient\DNSValidator\NativeDNS;
 use Elphin\LEClient\Exception\LogicException;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
@@ -21,10 +24,10 @@ class LEClient
     const LE_PRODUCTION = 'https://acme-v02.api.letsencrypt.org';
     const LE_STAGING = 'https://acme-staging-v02.api.letsencrypt.org';
 
-    private $certificateKeys;
-    private $accountKeys;
-
+    /** @var LEConnector */
     private $connector;
+
+    /** @var LEAccount */
     private $account;
 
     private $baseURL;
@@ -35,11 +38,15 @@ class LEClient
     /** @var ClientInterface */
     private $httpClient;
 
-    /** @var DNS */
+    /** @var DNSValidatorInterface */
     private $dns;
 
     /** @var Sleep */
     private $sleep;
+
+    /** @var CertificateStorageInterface */
+    private $storage;
+
 
     private $email;
 
@@ -53,35 +60,29 @@ class LEClient
      * @param LoggerInterface $logger PSR-3 compatible logger
      * @param ClientInterface|null $httpClient you can pass a custom client used for HTTP requests, if null is passed
      *                                one will be created
-     * @param string|array $certificateKeys The main directory in which all keys (and certificates), including account
-     *                                keys are stored. Defaults to 'keys/'. (optional)
-     *                                Alternatively, can pass array containing location of all certificate files.
-     *                                Required paths are public_key, private_key, order and
-     *                                certificate/fullchain_certificate (you can use both or only one of them)
-     * @param string|array $accountKeys The directory in which the account keys are stored. Is a subdir inside
-     *                                $certificateKeys. Defaults to '__account/'.(optional)
-     *                                Optional array containing location of account private and public keys.
-     *                                Required paths are private_key, public_key.
+     * @param CertificateStorageInterface|null $storage service for certificates. If not supplied, a default
+     *                                storage object will retain certificates in the local filesystem in a directory
+     *                                called certificates in the current working directory
+     * @param DNSValidatorInterface|null $dnsValidator service for checking DNS challenges. By default, this will use
+     *                                Google's DNS over HTTPs service, which should insulate you from cached entries,
+     *                                but this can be swapped for 'NativeDNS' or other alternative implementation
      */
     public function __construct(
         $email,
         $acmeURL = LEClient::LE_STAGING,
         LoggerInterface $logger = null,
         ClientInterface $httpClient = null,
-        $certificateKeys = 'keys/',
-        $accountKeys = '__account/'
+        CertificateStorageInterface $storage = null,
+        DNSValidatorInterface $dnsValidator = null
     ) {
-    
         $this->log = $logger ?? new NullLogger();
 
         $this->initBaseUrl($acmeURL);
-        $this->validateKeyConfig($certificateKeys, $accountKeys);
-
-        $this->initCertificateKeys($certificateKeys);
-        $this->initAccountKeys($certificateKeys, $accountKeys);
 
         $this->httpClient = $httpClient ?? new Client();
-        $this->dns = new DNS;
+
+        $this->storage = $storage ?? new FilesystemCertificateStorage();
+        $this->dns = $dnsValidator ?? new DNSOverHTTPS();
         $this->sleep = new Sleep;
         $this->email = $email;
     }
@@ -102,123 +103,18 @@ class LEClient
         return $this->baseURL;
     }
 
-    private function validateKeyConfig($certificateKeys, $accountKeys)
-    {
-        $allArrays = is_array($certificateKeys) && is_array($accountKeys);
-        $allStrings = is_string($certificateKeys) && is_string($accountKeys);
-
-        $ok = $allArrays || $allStrings;
-        if (!$ok) {
-            throw new LogicException('certificateKeys and accountKeys must be both arrays, or both strings');
-        }
-    }
-
-    private function initCertificateKeys($certificateKeys)
-    {
-        if (is_string($certificateKeys)) {
-            $this->initCertificateKeysFromString($certificateKeys);
-        } else {
-            $this->initCertificateKeysFromArray($certificateKeys);
-        }
-    }
-
-    private function initCertificateKeysFromArray($certificateKeys)
-    {
-        if (!isset($certificateKeys['certificate']) || !isset($certificateKeys['fullchain_certificate'])) {
-            throw new LogicException(
-                'certificateKeys[certificate] or certificateKeys[fullchain_certificate] file path must be set'
-            );
-        }
-        if (!isset($certificateKeys['private_key'])) {
-            throw new LogicException('certificateKeys[private_key] file path must be set');
-        }
-        if (!isset($certificateKeys['order'])) {
-            $certificateKeys['order'] = dirname($certificateKeys['private_key']) . '/order';
-        }
-        if (!isset($certificateKeys['public_key'])) {
-            $certificateKeys['public_key'] = dirname($certificateKeys['private_key']) . '/public.pem';
-        }
-
-        foreach ($certificateKeys as $param => $file) {
-            $parentDir = dirname($file);
-            if (!is_dir($parentDir)) {
-                throw new LogicException($parentDir . ' directory not found');
-            }
-        }
-
-        $this->certificateKeys = $certificateKeys;
-    }
-
-    private function initCertificateKeysFromString($certificateKeys)
-    {
-        if (!file_exists($certificateKeys)) {
-            mkdir($certificateKeys, 0777, true);
-            LEFunctions::createhtaccess($certificateKeys);
-        }
-
-        $this->certificateKeys = [
-            "public_key" => $certificateKeys . '/public.pem',
-            "private_key" => $certificateKeys . '/private.pem',
-            "certificate" => $certificateKeys . '/certificate.crt',
-            "fullchain_certificate" => $certificateKeys . '/fullchain.crt',
-            "order" => $certificateKeys . '/order'
-        ];
-    }
-
-    private function initAccountKeys($certificateKeys, $accountKeys)
-    {
-        if (is_string($accountKeys)) {
-            $this->initAccountKeysFromString($certificateKeys, $accountKeys);
-        } else {
-            $this->initAccountKeysFromArray($accountKeys);
-        }
-    }
-
-    private function initAccountKeysFromString($certificateKeys, $accountKeys)
-    {
-        $accountKeys = $certificateKeys . '/' . $accountKeys;
-
-        if (!file_exists($accountKeys)) {
-            mkdir($accountKeys, 0777, true);
-            LEFunctions::createhtaccess($accountKeys);
-        }
-
-        $this->accountKeys = [
-            "private_key" => $accountKeys . '/private.pem',
-            "public_key" => $accountKeys . '/public.pem'
-        ];
-    }
-
-    private function initAccountKeysFromArray($accountKeys)
-    {
-        //it's an array
-        if (!isset($accountKeys['private_key'])) {
-            throw new LogicException('accountKeys[private_key] file path must be set');
-        }
-        if (!isset($accountKeys['public_key'])) {
-            throw new LogicException('accountKeys[public_key] file path must be set');
-        }
-
-        foreach ($accountKeys as $param => $file) {
-            $parentDir = dirname($file);
-            if (!is_dir($parentDir)) {
-                throw new LogicException($parentDir . ' directory not found');
-            }
-        }
-
-        $this->accountKeys = $accountKeys;
-    }
-
     /**
      * Inject alternative DNS resolver for testing
+     * @param DNSValidatorInterface $dns
      */
-    public function setDNS(DNS $dns)
+    public function setDNS(DNSValidatorInterface $dns)
     {
         $this->dns = $dns;
     }
 
     /**
      * Inject alternative sleep service for testing
+     * @param Sleep $sleep
      */
     public function setSleep(Sleep $sleep)
     {
@@ -228,7 +124,7 @@ class LEClient
     private function getConnector()
     {
         if (!isset($this->connector)) {
-            $this->connector = new LEConnector($this->log, $this->httpClient, $this->baseURL, $this->accountKeys);
+            $this->connector = new LEConnector($this->log, $this->httpClient, $this->baseURL, $this->storage);
 
             //we need to initialize an account before using the connector
             $this->getAccount();
@@ -245,7 +141,7 @@ class LEClient
     public function getAccount()
     {
         if (!isset($this->account)) {
-            $this->account = new LEAccount($this->getConnector(), $this->log, $this->email, $this->accountKeys);
+            $this->account = new LEAccount($this->getConnector(), $this->log, $this->email, $this->storage);
         }
         return $this->account;
     }
@@ -272,8 +168,8 @@ class LEClient
     {
         $this->log->info("LEClient::getOrCreateOrder($basename,...)");
 
-        $order = new LEOrder($this->getConnector(), $this->log, $this->dns, $this->sleep);
-        $order->loadOrder($this->certificateKeys, $basename, $domains, $keyType, $notBefore, $notAfter);
+        $order = new LEOrder($this->getConnector(), $this->storage, $this->log, $this->dns, $this->sleep);
+        $order->loadOrder($basename, $domains, $keyType, $notBefore, $notAfter);
 
         return $order;
     }

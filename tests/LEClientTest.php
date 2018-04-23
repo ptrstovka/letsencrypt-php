@@ -2,6 +2,7 @@
 
 namespace Elphin\LEClient;
 
+use Elphin\LEClient\DNSValidator\DNSValidatorInterface;
 use Elphin\LEClient\Exception\LogicException;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
@@ -53,7 +54,7 @@ class LEClientTest extends LETestCase
         ]);
 
         //mock DNS service which will pretend our challenges have been set
-        $dns = $this->prophesize(DNS::class);
+        $dns = $this->prophesize(DNSValidatorInterface::class);
         $dns->checkChallenge('example.org', Argument::any())
             ->willReturn(true);
         $dns->checkChallenge('test.example.org', Argument::any())
@@ -68,7 +69,10 @@ class LEClientTest extends LETestCase
 
         $keys = sys_get_temp_dir() . '/le-client-test';
         $this->deleteDirectory($keys);
-        $client = new LEClient(['test@example.com'], LEClient::LE_STAGING, $logger, $httpClient, $keys);
+
+        $storage = new FilesystemCertificateStorage($keys);
+
+        $client = new LEClient(['test@example.com'], LEClient::LE_STAGING, $logger, $httpClient, $storage);
 
         //use our DNS and Sleep mocks
         $client->setDNS($dns->reveal());
@@ -123,12 +127,14 @@ class LEClientTest extends LETestCase
         $http = $this->prophesize(Client::class);
         $keys = sys_get_temp_dir() . '/le-client-test';
 
+        $storage = new FilesystemCertificateStorage($keys);
+
         //this should give us a staging url
-        $client = new LEClient(['test@example.com'], true, $logger, $http->reveal(), $keys);
+        $client = new LEClient(['test@example.com'], true, $logger, $http->reveal(), $storage);
         $this->assertEquals(LEClient::LE_STAGING, $client->getBaseUrl());
 
         //and this should be production
-        $client = new LEClient(['test@example.com'], false, $logger, $http->reveal(), $keys);
+        $client = new LEClient(['test@example.com'], false, $logger, $http->reveal(), $storage);
         $this->assertEquals(LEClient::LE_PRODUCTION, $client->getBaseUrl());
     }
 
@@ -141,8 +147,10 @@ class LEClientTest extends LETestCase
         $http = $this->prophesize(Client::class);
         $keys = sys_get_temp_dir() . '/le-client-test';
 
+        $storage = new FilesystemCertificateStorage($keys);
+
         //this should give us a staging url
-        new LEClient(['test@example.com'], [], $logger, $http->reveal(), $keys);
+        new LEClient(['test@example.com'], [], $logger, $http->reveal(), $storage);
     }
 
     public function testArrayKey()
@@ -152,94 +160,11 @@ class LEClientTest extends LETestCase
 
         $dir = sys_get_temp_dir() . '/le-client-test';
         $this->deleteDirectory($dir);
-        mkdir($dir);
 
-        //this should give us a staging url
-        $keys = [
-            "public_key" => $dir . '/public.pem',
-            "private_key" => $dir . '/private.pem',
-            "certificate" => $dir . '/certificate.crt',
-            "fullchain_certificate" => $dir . '/fullchain.crt',
-            "order" => $dir . '/order'
-        ];
+        $storage = new FilesystemCertificateStorage($dir);
 
-        $accdir = $dir . "/acc";
-        mkdir($accdir);
-
-        $account = [
-            "private_key" => $accdir . '/private.pem',
-            "public_key" => $accdir . '/public.pem'
-        ];
-
-        $client = new LEClient(['test@example.com'], true, $logger, $http->reveal(), $keys, $account);
+        $client = new LEClient(['test@example.com'], true, $logger, $http->reveal(), $storage);
         //it's enough to reach here without exceptions
         $this->assertNotNull($client);
-    }
-
-    /**
-     * @dataProvider invalidKeySetups
-     * @expectedException LogicException
-     */
-    public function testInvalidKeySetups($keys, $account)
-    {
-        $logger = new DiagnosticLogger();
-        $http = $this->prophesize(Client::class);
-        new LEClient(['test@example.com'], true, $logger, $http->reveal(), $keys, $account);
-    }
-
-    /**
-     * This provides a variety of bad setups, all of which should throw a logic exception
-     * @return array
-     */
-    public function invalidKeySetups()
-    {
-        $dir = sys_get_temp_dir() . '/le-client-test';
-        $this->deleteDirectory($dir);
-        mkdir($dir);
-
-        $accdir = $dir . "/acc";
-        mkdir($accdir);
-
-        return [
-            //test that keys and account settings must be both strings or both arrays
-            [[], ''],
-            ['', []],
-            [new \stdClass(), new \stdClass()],
-
-            //array has no certificate
-            [[], []],
-
-            //no private key
-            [['certificate' => '', 'fullchain_certificate'=>''], []],
-
-            [['certificate' => '', 'fullchain_certificate'=>'', 'private_key' => ''], []],
-
-            //good cert, bad acc missing private_key
-            [
-                [
-                    'certificate' => $dir . '/certificate.crt',
-                    'fullchain_certificate'=>$dir . '/fullchain.crt',
-                    'private_key' => $dir . '/private.pem',
-                    'public_key' => $dir . '/public.pem',
-                    'order' => $dir . '/order'
-                ],
-                []
-            ],
-
-            //good cert, acc missing public_key
-            [
-                [
-                    'certificate' => $dir . '/certificate.crt',
-                    'fullchain_certificate'=>$dir . '/fullchain.crt',
-                    'private_key' => $dir . '/private.pem',
-                    'public_key' => $dir . '/public.pem',
-                    'order' => $dir . '/order'
-                ],
-                [
-                    'private_key' => $accdir . '/private.pem',
-                ]
-            ]
-
-        ];
     }
 }

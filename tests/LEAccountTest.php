@@ -60,42 +60,33 @@ class LEAccountTest extends LETestCase
         return $connector->reveal();
     }
 
-    protected function initCertFiles()
+    protected function initCertStorage()
     {
         $keyDir=sys_get_temp_dir().'/le-acc-test';
         $this->deleteDirectory($keyDir);
-
-        $files = [
-            "public_key" => $keyDir . '/public.pem',
-            "private_key" => $keyDir . '/private.pem',
-            "certificate" => $keyDir . '/certificate.crt',
-            "fullchain_certificate" => $keyDir . '/fullchain.crt',
-            "order" => $keyDir . '/order'
-        ];
-
-        mkdir($keyDir);
-        return $files;
+        $store = new FilesystemCertificateStorage($keyDir);
+        return $store;
     }
 
     public function testBasicCreateAndReload()
     {
         $conn = $this->mockConnector();
         $log = new NullLogger();
-        $files = $this->initCertFiles();
+        $store = $this->initCertStorage();
 
         //at first, should not exist
-        $this->assertFileNotExists($files['public_key']);
-        $this->assertFileNotExists($files['private_key']);
+        $this->assertNull($store->getAccountPrivateKey());
+        $this->assertNull($store->getAccountPublicKey());
 
-        new LEAccount($conn, $log, ['test@example.org'], $files);
+        new LEAccount($conn, $log, ['test@example.org'], $store);
 
-        $this->assertFileExists($files['public_key']);
-        $this->assertFileExists($files['private_key']);
+        $this->assertNotEmpty($store->getAccountPrivateKey());
+        $this->assertNotEmpty($store->getAccountPublicKey());
 
         //reload for coverage...we need to fudge the mock connection a little
         $conn->newAccount = 'http://test.local/new-account2';
 
-        new LEAccount($conn, $log, ['test@example.org'], $files);
+        new LEAccount($conn, $log, ['test@example.org'], $store);
 
         //it's enough to reach here without exception
         $this->assertTrue(true);
@@ -108,30 +99,31 @@ class LEAccountTest extends LETestCase
     {
         $conn = $this->mockConnector();
         $log = new NullLogger();
-        $files = $this->initCertFiles();
+        $store = $this->initCertStorage();
 
         //at first, should not exist
-        $this->assertFileNotExists($files['public_key']);
-        $this->assertFileNotExists($files['private_key']);
+        $this->assertNull($store->getAccountPrivateKey());
+        $this->assertNull($store->getAccountPublicKey());
 
-        new LEAccount($conn, $log, ['test@example.org'], $files);
+        new LEAccount($conn, $log, ['test@example.org'], $store);
 
-        $this->assertFileExists($files['public_key']);
-        $this->assertFileExists($files['private_key']);
+        $this->assertNotEmpty($store->getAccountPrivateKey());
+        $this->assertNotEmpty($store->getAccountPublicKey());
+
 
         //when we reload, we fudge things to get a 404
         $conn->newAccount = 'http://test.local/new-account3';
 
-        new LEAccount($conn, $log, ['test@example.org'], $files);
+        new LEAccount($conn, $log, ['test@example.org'], $store);
     }
 
     public function testUpdateAccount()
     {
         $conn = $this->mockConnector();
         $log = new NullLogger();
-        $files = $this->initCertFiles();
+        $store = $this->initCertStorage();
 
-        $account = new LEAccount($conn, $log, ['test@example.org'], $files);
+        $account = new LEAccount($conn, $log, ['test@example.org'], $store);
 
         $ok = $account->updateAccount(['new@example.org']);
         $this->assertTrue($ok);
@@ -141,9 +133,9 @@ class LEAccountTest extends LETestCase
     {
         $conn = $this->mockConnector();
         $log = new NullLogger();
-        $files = $this->initCertFiles();
+        $store = $this->initCertStorage();
 
-        $account = new LEAccount($conn, $log, ['test@example.org'], $files);
+        $account = new LEAccount($conn, $log, ['test@example.org'], $store);
 
         $ok = $account->changeAccountKeys();
         $this->assertTrue($ok);
@@ -153,9 +145,9 @@ class LEAccountTest extends LETestCase
     {
         $conn = $this->mockConnector();
         $log = new NullLogger();
-        $files = $this->initCertFiles();
+        $store = $this->initCertStorage();
 
-        $account = new LEAccount($conn, $log, ['test@example.org'], $files);
+        $account = new LEAccount($conn, $log, ['test@example.org'], $store);
 
         $ok = $account->deactivateAccount();
         $this->assertTrue($ok);

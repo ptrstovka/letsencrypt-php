@@ -14,7 +14,6 @@ use Psr\Log\LoggerInterface;
 class LEAccount
 {
     private $connector;
-    private $accountKeys;
 
     public $id;
     public $key;
@@ -27,6 +26,9 @@ class LEAccount
     /** @var LoggerInterface  */
     private $log;
 
+    /** @var CertificateStorageInterface */
+    private $storage;
+
     /**
      * Initiates the LetsEncrypt Account class.
      *
@@ -34,18 +36,21 @@ class LEAccount
      * @param LoggerInterface $log   PSR-3 compatible logger
      * @param array $email           The array of strings containing e-mail addresses. Only used when creating a
      *                               new account.
-     * @param array $accountKeys     Array containing location of account keys files.
+     * @param CertificateStorageInterface $storage  storage for account keys
      */
-    public function __construct($connector, LoggerInterface $log, $email, $accountKeys)
+    public function __construct($connector, LoggerInterface $log, $email, CertificateStorageInterface $storage)
     {
         $this->connector = $connector;
-        $this->accountKeys = $accountKeys;
+        $this->storage = $storage;
         $this->log = $log;
 
-        if (!file_exists($this->accountKeys['private_key']) or !file_exists($this->accountKeys['public_key'])) {
+        if (empty($storage->getAccountPublicKey()) || empty($storage->getAccountPrivateKey())) {
             $this->log->notice("No account found for ".implode(',', $email).", attempting to create account");
 
-            LEFunctions::RSAgenerateKeys(null, $this->accountKeys['private_key'], $this->accountKeys['public_key']);
+            $accountKey = LEFunctions::RSAgenerateKeys();
+            $storage->setAccountPublicKey($accountKey['public']);
+            $storage->setAccountPrivateKey($accountKey['private']);
+
             $this->connector->accountURL = $this->createLEAccount($email);
         } else {
             $this->connector->accountURL = $this->getLEAccount();
@@ -172,18 +177,10 @@ class LEAccount
      */
     public function changeAccountKeys()
     {
-        LEFunctions::RSAgenerateKeys(
-            null,
-            $this->accountKeys['private_key'].'.new',
-            $this->accountKeys['public_key'].'.new'
-        );
-        $privateKey = openssl_pkey_get_private(file_get_contents($this->accountKeys['private_key'].'.new'));
-        if ($privateKey === false) {
-            //@codeCoverageIgnoreStart
-            $this->log->error('LEAccount::changeAccountKeys failed to open private key');
-            return false;
-            //@codeCoverageIgnoreEnd
-        }
+        $new=LEFunctions::RSAgenerateKeys();
+
+        $privateKey = openssl_pkey_get_private($new['private']);
+
 
         $details = openssl_pkey_get_details($privateKey);
         $innerPayload = ['account' => $this->connector->accountURL, 'newKey' => [
@@ -194,7 +191,7 @@ class LEAccount
         $outerPayload = $this->connector->signRequestJWK(
             $innerPayload,
             $this->connector->keyChange,
-            $this->accountKeys['private_key'].'.new'
+            $new['private']
         );
         $sign = $this->connector->signRequestKid(
             $outerPayload,
@@ -210,10 +207,8 @@ class LEAccount
 
         $this->getLEAccountData();
 
-        unlink($this->accountKeys['private_key']);
-        unlink($this->accountKeys['public_key']);
-        rename($this->accountKeys['private_key'].'.new', $this->accountKeys['private_key']);
-        rename($this->accountKeys['public_key'].'.new', $this->accountKeys['public_key']);
+        $this->storage->setAccountPublicKey($new['public']);
+        $this->storage->setAccountPrivateKey($new['private']);
 
         $this->log->notice('Account keys changed');
         return true;

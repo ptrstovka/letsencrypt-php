@@ -2,6 +2,7 @@
 
 namespace Elphin\LEClient;
 
+use Elphin\LEClient\DNSValidator\DNSValidatorInterface;
 use Elphin\LEClient\Exception\LogicException;
 use Elphin\LEClient\Exception\RuntimeException;
 use Psr\Log\LoggerInterface;
@@ -15,36 +16,56 @@ use Psr\Log\LoggerInterface;
  */
 class LEOrder
 {
-    /** @var LEConnector */
-    private $connector;
-
-    private $basename;
-    private $certificateKeys;
-    private $orderURL;
-    private $keyType;
-    private $keySize;
-
-    public $status;
-    public $expires;
-    public $identifiers;
-    private $authorizationURLs;
-
-    /** @var LEAuthorization[] */
-    public $authorizations;
-    public $finalizeURL;
-    public $certificateURL;
-
-    /** @var LoggerInterface */
-    private $log;
-
-    /** @var DNS */
-    private $dns;
-
-    /** @var Sleep */
-    private $sleep;
-
     const CHALLENGE_TYPE_HTTP = 'http-01';
     const CHALLENGE_TYPE_DNS = 'dns-01';
+
+    /** @var string order status (pending, processing, valid) */
+    private $status;
+
+    /** @var string expiration date for order */
+    private $expires;
+
+    /** @var array containing all the domain identifiers for the order */
+    private $identifiers;
+
+    /** @var string[] URLs to all the authorization objects for this order */
+    private $authorizationURLs;
+
+    /** @var LEAuthorization[] array of authorization objects for the order */
+    private $authorizations;
+
+    /** @var string URL for order finalization */
+    private $finalizeURL;
+
+    /** @var string URL for obtaining certificate */
+    private $certificateURL;
+
+    /** @var string base domain name for certificate */
+    private $basename;
+
+    /** @var string URL referencing order */
+    private $orderURL;
+
+    /** @var string type of key (rsa or ec) */
+    private $keyType;
+
+    /** @var int size of key (typically 2048 or 4096 for rsa, 256 or 384 for ec */
+    private $keySize;
+    
+    /** @var LEConnector ACME API connection provided to constructor */
+    private $connector;
+
+    /** @var LoggerInterface logger provided to constructor */
+    private $log;
+
+    /** @var DNSValidatorInterface dns resolution provider to constructor*/
+    private $dns;
+
+    /** @var Sleep sleep service provided to constructor */
+    private $sleep;
+
+    /** @var CertificateStorageInterface storage interface provided to constructor */
+    private $storage;
 
     /**
      * Initiates the LetsEncrypt Order class. If the base name is found in the $keysDir directory, the order data is
@@ -52,14 +73,16 @@ class LEOrder
      * new order is created.
      *
      * @param LEConnector $connector The LetsEncrypt Connector instance to use for HTTP requests.
+     * @param CertificateStorageInterface $storage
      * @param LoggerInterface $log PSR-3 compatible logger
-     * @param DNS $dns DNS challenge checking service
+     * @param DNSValidatorInterface $dns DNS challenge checking service
      * @param Sleep $sleep Sleep service for polling
      */
     public function __construct(
         LEConnector $connector,
+        CertificateStorageInterface $storage,
         LoggerInterface $log,
-        DNS $dns,
+        DNSValidatorInterface $dns,
         Sleep $sleep
     ) {
     
@@ -67,6 +90,7 @@ class LEOrder
         $this->log = $log;
         $this->dns = $dns;
         $this->sleep = $sleep;
+        $this->storage = $storage;
     }
 
     /**
@@ -74,7 +98,6 @@ class LEOrder
      * requested. If no order was found locally, if the request is invalid or when there is a change in domain names, a
      * new order is created.
      *
-     * @param array $certificateKeys Array containing location of certificate keys files.
      * @param string $basename The base name for the order. Preferable the top domain (example.org).
      *                                         Will be the directory in which the keys are stored. Used for the
      *                                         CommonName in the certificate as well.
@@ -87,10 +110,10 @@ class LEOrder
      * @param string $notAfter A date string formatted like 0000-00-00T00:00:00Z (yyyy-mm-dd hh:mm:ss)
      *                                         until which the certificate is valid.
      */
-    public function loadOrder(array $certificateKeys, $basename, array $domains, $keyType, $notBefore, $notAfter)
+    public function loadOrder($basename, array $domains, $keyType, $notBefore, $notAfter)
     {
         $this->basename = $basename;
-        $this->certificateKeys = $certificateKeys;
+
         $this->initialiseKeyTypeAndSize($keyType ?? 'rsa-4096');
 
         if ($this->loadExistingOrder($domains)) {
@@ -102,17 +125,18 @@ class LEOrder
 
     private function loadExistingOrder($domains)
     {
+        $orderUrl = $this->storage->getMetadata($this->basename.'.order.url');
+        $publicKey = $this->storage->getPublicKey($this->basename);
+        $privateKey = $this->storage->getPrivateKey($this->basename);
+
         //anything to load?
-        if (!file_exists($this->certificateKeys['private_key']) ||
-            !file_exists($this->certificateKeys['order']) ||
-            !file_exists($this->certificateKeys['public_key'])
-        ) {
+        if (empty($orderUrl) || empty($publicKey) || empty($privateKey)) {
             $this->log->info("No order found for {$this->basename}. Creating new order.");
             return false;
         }
 
         //valid URL?
-        $this->orderURL = file_get_contents($this->certificateKeys['order']);
+        $this->orderURL = $orderUrl;
         if (!filter_var($this->orderURL, FILTER_VALIDATE_URL)) {
             //@codeCoverageIgnoreStart
             $this->log->warning("Order for {$this->basename} has invalid URL. Creating new order.");
@@ -123,7 +147,7 @@ class LEOrder
 
         //retrieve the order
         $get = $this->connector->get($this->orderURL);
-        if (strpos($get['header'], "200 OK") === false) {
+        if ($get['status'] !== 200) {
             //@codeCoverageIgnoreStart
             $this->log->warning("Order for {$this->basename} invalid. Creating new order.");
             $this->deleteOrderFiles();
@@ -157,11 +181,11 @@ class LEOrder
 
     private function deleteOrderFiles()
     {
-        foreach ($this->certificateKeys as $file) {
-            if (is_file($file)) {
-                unlink($file);
-            }
-        }
+        $this->storage->setPrivateKey($this->basename, null);
+        $this->storage->setPublicKey($this->basename, null);
+        $this->storage->setCertificate($this->basename, null);
+        $this->storage->setFullChainCertificate($this->basename, null);
+        $this->storage->setMetadata($this->basename.'.order.url', null);
     }
 
     private function initialiseKeyTypeAndSize($keyType)
@@ -217,15 +241,19 @@ class LEOrder
         );
         $post = $this->connector->post($this->connector->newOrder, $sign);
         if ($post['status'] !== 201) {
+            //@codeCoverageIgnoreStart
             throw new RuntimeException('Creating new order failed.');
+            //@codeCoverageIgnoreEnd
         }
 
         if (!preg_match('~Location: (\S+)~i', $post['header'], $matches)) {
+            //@codeCoverageIgnoreStart
             throw new RuntimeException('New-order returned invalid response.');
+            //@codeCoverageIgnoreEnd
         }
 
         $this->orderURL = trim($matches[1]);
-        file_put_contents($this->certificateKeys['order'], $this->orderURL);
+        $this->storage->setMetadata($this->basename.'.order.url', $this->orderURL);
 
         $this->generateKeys();
 
@@ -244,13 +272,14 @@ class LEOrder
 
     private function generateKeys()
     {
-        $private = $this->certificateKeys['private_key'];
-        $public = $this->certificateKeys['public_key'];
         if ($this->keyType == "rsa") {
-            LEFunctions::RSAgenerateKeys(null, $private, $public, $this->keySize);
+            $key = LEFunctions::RSAgenerateKeys($this->keySize);
         } else {
-            LEFunctions::ECgenerateKeys(null, $private, $public, $this->keySize);
+            $key = LEFunctions::ECgenerateKeys($this->keySize);
         }
+
+        $this->storage->setPublicKey($this->basename, $key['public']);
+        $this->storage->setPrivateKey($this->basename, $key['private']);
     }
 
     /**
@@ -313,10 +342,11 @@ class LEOrder
 
     private function loadAccountKey()
     {
-        $privateKey = openssl_pkey_get_private(file_get_contents($this->connector->accountKeys['private_key']));
+        $keydata = $this->storage->getAccountPrivateKey();
+        $privateKey = openssl_pkey_get_private($keydata);
         if ($privateKey === false) {
             //@codeCoverageIgnoreStart
-            throw new RuntimeException("Failed load account key from " . $this->connector->accountKeys['private_key']);
+            throw new RuntimeException("Failed load account key");
             //@codeCoverageIgnoreEnd
         }
         return $privateKey;
@@ -325,10 +355,11 @@ class LEOrder
 
     private function loadCertificateKey()
     {
-        $privateKey = openssl_pkey_get_private(file_get_contents($this->certificateKeys['private_key']));
+        $keydata = $this->storage->getPrivateKey($this->basename);
+        $privateKey = openssl_pkey_get_private($keydata);
         if ($privateKey === false) {
             //@codeCoverageIgnoreStart
-            throw new RuntimeException("Failed load certificate key from " . $this->certificateKeys['private_key']);
+            throw new RuntimeException("Failed load certificate key");
             //@codeCoverageIgnoreEnd
         }
         return $privateKey;
@@ -437,7 +468,11 @@ class LEOrder
                 }
             }
         }
-        return false;
+
+        //f we reach here, the domain identifier given did not match any authorization object
+        //@codeCoverageIgnoreStart
+        throw new LogicException("Attempt to verify authorization for identifier $identifier not in order");
+        //@codeCoverageIgnoreEnd
     }
 
     private function verifyDNSChallenge($identifier, array $challenge, $keyAuthorization, LEAuthorization $auth)
@@ -473,7 +508,7 @@ class LEOrder
 
     private function verifyHTTPChallenge($identifier, array $challenge, $keyAuthorization, LEAuthorization $auth)
     {
-        if (!LEFunctions::checkHTTPChallenge($identifier, $challenge['token'], $keyAuthorization)) {
+        if (!$this->connector->checkHTTPChallenge($identifier, $challenge['token'], $keyAuthorization)) {
             $this->log->warning("HTTP challenge for $identifier tested, found invalid.");
             return false;
         }
@@ -486,8 +521,10 @@ class LEOrder
 
         $post = $this->connector->post($challenge['url'], $sign);
         if ($post['status'] !== 200) {
+            //@codeCoverageIgnoreStart
             $this->log->warning("HTTP challenge for $identifier valid, but failed to post to ACME service");
             return false;
+            //@codeCoverageIgnoreEnd
         }
 
         while ($auth->status == 'pending') {
@@ -499,13 +536,14 @@ class LEOrder
         return true;
     }
 
-    /**
+    /*
      * Deactivate an LetsEncrypt Authorization instance.
      *
      * @param string $identifier The domain name for which the verification should be deactivated.
      *
      * @return boolean  Returns true is the deactivation request was successful, false if not.
      */
+    /*
     public function deactivateOrderAuthorization($identifier)
     {
         foreach ($this->authorizations as $auth) {
@@ -528,6 +566,7 @@ class LEOrder
 
         return false;
     }
+    */
 
     /**
      * Generates a Certificate Signing Request for the identifiers in the current LetsEncrypt Order instance.
@@ -537,7 +576,7 @@ class LEOrder
      * @return string   Returns the generated CSR as string, unprepared for LetsEncrypt. Preparation for the request
      *                  happens in finalizeOrder()
      */
-    public function generateCSR()
+    private function generateCSR()
     {
         $domains = array_map(function ($dns) {
             return $dns['value'];
@@ -675,7 +714,7 @@ class LEOrder
     {
         $polling = 0;
         while ($this->status == 'processing' && $polling < 4) {
-            $this->log->info('Certificate for \'' . $this->basename . '\' being processed. Retrying in 5 seconds...');
+            $this->log->info('Certificate for ' . $this->basename . ' being processed. Retrying in 5 seconds...');
 
             $this->sleep->for(5);
             $this->updateOrderData();
@@ -684,7 +723,7 @@ class LEOrder
 
         if ($this->status != 'valid' || empty($this->certificateURL)) {
             $this->log->warning(
-                'Order for \'' . $this->basename . '\' not valid. Cannot retrieve certificate.'
+                'Order for ' . $this->basename . ' not valid. Cannot retrieve certificate.'
             );
             return false;
         }
@@ -705,18 +744,16 @@ class LEOrder
     private function writeCertificates($body)
     {
         if (preg_match_all('~(-----BEGIN\sCERTIFICATE-----[\s\S]+?-----END\sCERTIFICATE-----)~i', $body, $matches)) {
-            if (isset($this->certificateKeys['certificate'])) {
-                file_put_contents($this->certificateKeys['certificate'], $matches[0][0]);
-            }
+            $this->storage->setCertificate($this->basename, $matches[0][0]);
 
             $matchCount = count($matches[0]);
-            if ($matchCount > 1 && isset($this->certificateKeys['fullchain_certificate'])) {
+            if ($matchCount > 1) {
                 $fullchain = $matches[0][0] . "\n";
 
                 for ($i = 1; $i < $matchCount; $i++) {
                     $fullchain .= $matches[0][$i] . "\n";
                 }
-                file_put_contents(trim($this->certificateKeys['fullchain_certificate']), $fullchain);
+                $this->storage->setFullChainCertificate($this->basename, $fullchain);
             }
             $this->log->info("Certificate for {$this->basename} stored");
             return true;
@@ -724,19 +761,6 @@ class LEOrder
 
         $this->log->error("Received invalid certificate for {$this->basename}, cannot save");
         return false;
-    }
-
-    private function getCertificateFile()
-    {
-        if (isset($this->certificateKeys['certificate'])) {
-            return $this->certificateKeys['certificate'];
-        } elseif (isset($this->certificateKeys['fullchain_certificate'])) {
-            return $this->certificateKeys['fullchain_certificate'];
-        }
-
-        throw new RuntimeException(
-            'certificateKeys[certificate] or certificateKeys[fullchain_certificate] required'
-        );
     }
 
     /**
@@ -756,20 +780,20 @@ class LEOrder
             return false;
         }
 
-        $certFile = $this->getCertificateFile();
-        if (!file_exists($certFile) || !file_exists($this->certificateKeys['private_key'])) {
+        $certificate = $this->storage->getCertificate($this->basename);
+        if (empty($certificate)) {
             $this->log->warning("Certificate for {$this->basename} not found, cannot revoke");
             return false;
         }
 
-        $certificate = file_get_contents($this->certificateKeys['certificate']);
         preg_match('~-----BEGIN\sCERTIFICATE-----(.*)-----END\sCERTIFICATE-----~s', $certificate, $matches);
         $certificate = trim(LEFunctions::base64UrlSafeEncode(base64_decode(trim($matches[1]))));
 
+        $certificateKey = $this->storage->getPrivateKey($this->basename);
         $sign = $this->connector->signRequestJWK(
             ['certificate' => $certificate, 'reason' => $reason],
             $this->connector->revokeCert,
-            $this->certificateKeys['private_key']
+            $certificateKey
         );
         //4**/5** responses will throw an exception...
         $this->connector->post($this->connector->revokeCert, $sign);

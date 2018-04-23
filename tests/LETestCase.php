@@ -2,6 +2,7 @@
 
 namespace Elphin\LEClient;
 
+use Elphin\LEClient\DNSValidator\DNSValidatorInterface;
 use GuzzleHttp\Psr7\Response;
 use PHPUnit\Framework\TestCase;
 use Prophecy\Argument;
@@ -18,12 +19,12 @@ class LETestCase extends TestCase
     /**
      * Return DNS mock which will return success or failure for checkChallenge
      * @param $success
-     * @return DNS
+     * @return DNSValidatorInterface
      */
     protected function mockDNS($success = true)
     {
         //mock DNS service which will pretend our challenges have been set
-        $dns = $this->prophesize(DNS::class);
+        $dns = $this->prophesize(DNSValidatorInterface::class);
         $dns->checkChallenge(Argument::any(), Argument::any())
             ->willReturn($success);
 

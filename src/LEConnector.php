@@ -22,7 +22,6 @@ use Psr\Log\LoggerInterface;
 class LEConnector
 {
     public $baseURL;
-    public $accountKeys;
 
     private $nonce;
 
@@ -41,18 +40,26 @@ class LEConnector
     /** @var ClientInterface */
     private $httpClient;
 
+    /** @var CertificateStorageInterface */
+    private $storage;
+
     /**
      * Initiates the LetsEncrypt Connector class.
      *
      * @param LoggerInterface $log
      * @param ClientInterface $httpClient
      * @param string $baseURL The LetsEncrypt server URL to make requests to.
-     * @param array $accountKeys Array containing location of account keys files.
+     * @param CertificateStorageInterface $storage
      */
-    public function __construct(LoggerInterface $log, ClientInterface $httpClient, $baseURL, $accountKeys)
-    {
+    public function __construct(
+        LoggerInterface $log,
+        ClientInterface $httpClient,
+        $baseURL,
+        CertificateStorageInterface $storage
+    ) {
+    
         $this->baseURL = $baseURL;
-        $this->accountKeys = $accountKeys;
+        $this->storage = $storage;
         $this->log = $log;
         $this->httpClient = $httpClient;
 
@@ -85,6 +92,35 @@ class LEConnector
             throw new RuntimeException("No new nonce - fetched {$this->newNonce} got " . $result['header']);
             //@codeCoverageIgnoreEnd
         }
+    }
+
+    /**
+     * Makes a request to the HTTP challenge URL and checks whether the authorization is valid for the given $domain.
+     *
+     * @param string $domain The domain to check the authorization for.
+     * @param string $token The token (filename) to request.
+     * @param string $keyAuthorization the keyAuthorization (file content) to compare.
+     *
+     * @return boolean  Returns true if the challenge is valid, false if not.
+     */
+    public function checkHTTPChallenge($domain, $token, $keyAuthorization)
+    {
+        $requestURL = $domain . '/.well-known/acme-challenge/' . $token;
+
+        $request = new Request('GET', $requestURL);
+
+        try {
+            $response = $this->httpClient->send($request);
+        } catch (\Exception $e) {
+            $this->log->warning(
+                "HTTP check on $requestURL failed ({msg})",
+                ['msg' => $e->getMessage()]
+            );
+            return false;
+        }
+
+        $content = $response->getBody()->getContents();
+        return $content == $keyAuthorization;
     }
 
     /**
@@ -228,17 +264,16 @@ class LEConnector
      *
      * @param array|string $payload The payload to add to the signature.
      * @param string $url The URL to use in the signature.
-     * @param string $privateKeyFile The private key to sign the request with. Defaults to 'private.pem'.
-     *                               Defaults to accountKeys[private_key].
+     * @param string $privateKey The private key to sign the request with.
      *
      * @return string   Returns a JSON encoded string containing the signature.
      */
-    public function signRequestJWK($payload, $url, $privateKeyFile = '')
+    public function signRequestJWK($payload, $url, $privateKey = '')
     {
-        if ($privateKeyFile == '') {
-            $privateKeyFile = $this->accountKeys['private_key'];
+        if ($privateKey == '') {
+            $privateKey = $this->storage->getAccountPrivateKey();
         }
-        $privateKey = openssl_pkey_get_private(file_get_contents($privateKeyFile));
+        $privateKey = openssl_pkey_get_private($privateKey);
         if ($privateKey === false) {
             //@codeCoverageIgnoreStart
             throw new RuntimeException('LEConnector::signRequestJWK failed to get private key');
@@ -281,17 +316,17 @@ class LEConnector
      * @param array|string $payload The payload to add to the signature.
      * @param string $kid The Key ID to use in the signature.
      * @param string $url The URL to use in the signature.
-     * @param string $privateKeyFile The private key to sign the request with. Defaults to 'private.pem'.
-     *                               Defaults to accountKeys[private_key].
+     * @param string $privateKey The private key to sign the request with. Defaults to account key
      *
      * @return string   Returns a JSON encoded string containing the signature.
      */
-    public function signRequestKid($payload, $kid, $url, $privateKeyFile = '')
+    public function signRequestKid($payload, $kid, $url, $privateKey = '')
     {
-        if ($privateKeyFile == '') {
-            $privateKeyFile = $this->accountKeys['private_key'];
+        if ($privateKey == '') {
+            $privateKey = $this->storage->getAccountPrivateKey();
         }
-        $privateKey = openssl_pkey_get_private(file_get_contents($privateKeyFile));
+        $privateKey = openssl_pkey_get_private($privateKey);
+
         //$details = openssl_pkey_get_details($privateKey);
 
         $protected = [

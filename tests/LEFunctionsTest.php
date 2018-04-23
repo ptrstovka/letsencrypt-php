@@ -9,19 +9,12 @@ class LEFunctionsTest extends TestCase
 {
     public function testRSAGenerateKeys()
     {
-        $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR;
-        $this->rm($tmp . 'private.pem');
-        $this->rm($tmp . 'public.pem');
+        $keys = LEFunctions::RSAGenerateKeys();
 
-        LEFunctions::RSAGenerateKeys($tmp);
-
-        //check we have some keys
-        $this->assertFileExists($tmp . 'private.pem');
-        $this->assertFileExists($tmp . 'public.pem');
-
-        //cleanup
-        $this->rm($tmp . 'private.pem');
-        $this->rm($tmp . 'public.pem');
+        $this->assertArrayHasKey('public', $keys);
+        $this->assertArrayHasKey('private', $keys);
+        $this->assertContains('BEGIN PUBLIC KEY', $keys['public']);
+        $this->assertContains('BEGIN PRIVATE KEY', $keys['private']);
     }
 
     /**
@@ -29,8 +22,7 @@ class LEFunctionsTest extends TestCase
      */
     public function testRSAGenerateKeysWithInvalidLength()
     {
-        $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR;
-        LEFunctions::RSAGenerateKeys($tmp, 'private.pem', 'public.pem', 111);
+        LEFunctions::RSAGenerateKeys(111);
     }
 
     /**
@@ -38,19 +30,12 @@ class LEFunctionsTest extends TestCase
      */
     public function testECGenerateKeys($length)
     {
-        $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR;
-        $this->rm($tmp . 'private.pem');
-        $this->rm($tmp . 'public.pem');
+        $keys = LEFunctions::ECGenerateKeys($length);
 
-        LEFunctions::ECGenerateKeys($tmp, 'private.pem', 'public.pem', $length);
-
-        //check we have some keys
-        $this->assertFileExists($tmp . 'private.pem');
-        $this->assertFileExists($tmp . 'public.pem');
-
-        //cleanup
-        $this->rm($tmp . 'private.pem');
-        $this->rm($tmp . 'public.pem');
+        $this->assertArrayHasKey('public', $keys);
+        $this->assertArrayHasKey('private', $keys);
+        $this->assertContains('BEGIN PUBLIC KEY', $keys['public']);
+        $this->assertContains('BEGIN EC PRIVATE KEY', $keys['private']);
     }
 
     public function ecKeyLengthProvider()
@@ -63,8 +48,7 @@ class LEFunctionsTest extends TestCase
      */
     public function testECGenerateKeysWithInvalidLength()
     {
-        $tmp = sys_get_temp_dir() . DIRECTORY_SEPARATOR;
-        LEFunctions::ECGenerateKeys($tmp, 'private.pem', 'public.pem', 111);
+        LEFunctions::ECGenerateKeys(111);
     }
 
 
