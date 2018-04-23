@@ -1,15 +1,14 @@
 <?php
 
-namespace Elphin\LEClient;
-
-use Elphin\LEClient\DNS\DNSInterface;
+namespace Elphin\LEClient\DNSValidator;
 
 /**
- * Class DNS exists to provide an injectable service for DNS queries which we can mock for unit tests
+ * NativeDNS implements DNSValidatorInterface using locally available DNS services
+ *
  * @package Elphin\LEClient
  * @codeCoverageIgnore
  */
-class NativeDNS implements DNSInterface
+class NativeDNS implements DNSValidatorInterface
 {
     public function checkChallenge($domain, $requiredDigest) : bool
     {
