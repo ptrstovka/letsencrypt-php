@@ -17,7 +17,7 @@ class FilesystemCertificateStorage implements CertificateStorageInterface
         $this->dir = $dir ?? getcwd().DIRECTORY_SEPARATOR.'certificates';
 
         if (!is_dir($this->dir)) {
-            @mkdir($this->dir);
+            /** @scrutinizer ignore-unhandled */ @mkdir($this->dir);
         }
         if (!is_writable($this->dir)) {
             throw new RuntimeException("{$this->dir} is not writable");
