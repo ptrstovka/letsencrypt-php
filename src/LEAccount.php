@@ -180,6 +180,11 @@ class LEAccount
         $new=LEFunctions::RSAgenerateKeys();
 
         $privateKey = openssl_pkey_get_private($new['private']);
+        if ($privateKey === false) {
+            //@codeCoverageIgnoreStart
+            throw new RuntimeException('Failed to open newly generated private key');
+            //@codeCoverageIgnoreEnd
+        }
 
 
         $details = openssl_pkey_get_details($privateKey);
