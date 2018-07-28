@@ -155,6 +155,15 @@ class LEOrder
             //@codeCoverageIgnoreEnd
         }
 
+        //ensure the order is still valid
+        if ($get['body']['status'] === 'invalid') {
+            //@codeCoverageIgnoreStart
+            $this->log->warning("Order for {$this->basename} has the status 'invalid', unable to authorize. Creating new order.");
+            $this->deleteOrderFiles();
+            return false;
+            //@codeCoverageIgnoreEnd
+        }
+
         //ensure retrieved order matches our domains
         $orderdomains = array_map(function ($ident) {
             return $ident['value'];
