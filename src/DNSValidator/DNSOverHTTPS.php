@@ -34,7 +34,6 @@ use Psr\Http\Message\ResponseInterface;
 /**
  * DNSOverHTTPS implements DNSValidatorInterface using Google's DNS-over-HTTPS service
  * @package Elphin\PHPCertificateToolbox\DNSValidator
- * @codeCoverageIgnore
  */
 class DNSOverHTTPS implements DNSValidatorInterface
 {
@@ -80,11 +79,13 @@ class DNSOverHTTPS implements DNSValidatorInterface
         $hostname = '_acme-challenge.' . str_replace('*.', '', $domain);
 
         $records = $this->get($hostname, 'TXT');
-        foreach ($records->Answer as $record) {
-            if ((rtrim($record->name, ".") == $hostname) &&
-                ($record->type == 16) &&
-                (trim($record->data, '"') == $requiredDigest)) {
-                return true;
+        if ($records->Status == 0) {
+            foreach ($records->Answer as $record) {
+                if ((rtrim($record->name, ".") == $hostname) &&
+                    ($record->type == 16) &&
+                    (trim($record->data, '"') == $requiredDigest)) {
+                    return true;
+                }
             }
         }
 
