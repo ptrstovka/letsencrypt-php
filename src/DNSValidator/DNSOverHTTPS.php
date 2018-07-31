@@ -1,6 +1,7 @@
 <?php
 
-/* DNSOverHTTPS
+/**
+ * DNSOverHTTPS
  *
  * MIT License
  *
@@ -33,13 +34,13 @@ use Psr\Http\Message\ResponseInterface;
 /**
  * DNSOverHTTPS implements DNSValidatorInterface using Google's DNS-over-HTTPS service
  * @package Elphin\PHPCertificateToolbox\DNSValidator
- * @codeCoverageIgnore
  */
 class DNSOverHTTPS implements DNSValidatorInterface
 {
 
+    const DNS_GOOGLE     = 'https://dns.google.com/resolve';
+    const DNS_MOZILLA    = 'https://mozilla.cloudflare-dns.com/dns-query';
     const DNS_CLOUDFLARE = 'https://cloudflare-dns.com/dns-query';
-    const DNS_GOOGLE = 'https://dns.google.com/resolve';
 
     /**
      * What DNS-over-HTTPS service to use
@@ -69,8 +70,7 @@ class DNSOverHTTPS implements DNSValidatorInterface
         }
 
         $this->client = new Client([
-            'base_uri' => $this->baseURI,
-            'Accept' => 'application/json'
+            'base_uri' => $this->baseURI
         ]);
     }
 
@@ -79,11 +79,13 @@ class DNSOverHTTPS implements DNSValidatorInterface
         $hostname = '_acme-challenge.' . str_replace('*.', '', $domain);
 
         $records = $this->get($hostname, 'TXT');
-        foreach ($records->Answer as $record) {
-            if ((rtrim($record->name, ".") == $hostname) &&
-                ($record->type == 16) &&
-                (trim($record->data, '"') == $requiredDigest)) {
-                return true;
+        if ($records->Status == 0) {
+            foreach ($records->Answer as $record) {
+                if ((rtrim($record->name, ".") == $hostname) &&
+                    ($record->type == 16) &&
+                    (trim($record->data, '"') == $requiredDigest)) {
+                    return true;
+                }
             }
         }
 
@@ -99,14 +101,15 @@ class DNSOverHTTPS implements DNSValidatorInterface
     {
         $query = [
             'query' => [
-                'name' => $name,
-                'type' => $type
+                'name'               => $name,
+                'type'               => $type,
+                'edns_client_subnet' => '0.0.0.0/0',            //disable geotagged dns results
+                'ct'                 => 'application/dns-json', //cloudflare requires this
+            ],
+            'headers' => [
+                'Accept' => 'application/dns-json'
             ]
         ];
-
-        if (strpos($this->baseURI, 'cloudflare')) {
-            $query['query']['ct'] = 'application/dns-json'; //CloudFlare forces this tag, Google ignores
-        }
 
         $response = $this->client->get(null, $query);
 
