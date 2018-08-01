@@ -29,7 +29,8 @@
 namespace Elphin\PHPCertificateToolbox\DNSValidator;
 
 use GuzzleHttp\Client;
-use Psr\Http\Message\ResponseInterface;
+use Elphin\PHPCertificateToolbox\Exception\RuntimeException;
+use GuzzleHttp\Exception\BadResponseException;
 
 /**
  * DNSOverHTTPS implements DNSValidatorInterface using Google's DNS-over-HTTPS service
@@ -111,26 +112,20 @@ class DNSOverHTTPS implements DNSValidatorInterface
             ]
         ];
 
-        $response = $this->client->get(null, $query);
+        try {
+            $response = $this->client->get(null, $query);
+        } catch (BadResponseException $e) {
+            throw new RuntimeException("GET {$this->baseURI} failed", 0, $e);
+        }
 
-        $this->checkError($response);
-
-        return json_decode($response->getBody());
-    }
-
-    /**
-     * @param ResponseInterface $response
-     */
-    private function checkError(ResponseInterface $response) : void
-    {
-        $json = json_decode($response->getBody());
+        $decode = json_decode($response->getBody());
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \RuntimeException();
+            throw new RuntimeException(
+                'Attempted to decode expected JSON response, however server returned something unexpected.'
+            );
         }
 
-        if (isset($json->errors) && count($json->errors) >= 1) { //not current in spec
-            throw new \RuntimeException($json->errors[0]->message, $json->errors[0]->code);
-        }
+        return $decode;
     }
 }
