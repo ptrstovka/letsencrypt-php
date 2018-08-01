@@ -12,8 +12,12 @@ class LEOrderTest extends LETestCase
     /**
      * @return LEConnector
      */
-    private function mockConnector($orderValid = false, $authValid = true)
+    private function mockConnector($orderValid = false, $authValid = true, $orderStatus = null)
     {
+        if (is_null($orderStatus)) {
+            $orderStatus = $orderValid ? 'valid' : 'pending';
+        }
+
         $connector = $this->prophesize(LEConnector::class);
         $connector->newOrder = 'http://test.local/new-order';
 
@@ -25,7 +29,7 @@ class LEOrderTest extends LETestCase
 
         $neworder=[];
         $neworder['header']='201 Created\r\nLocation: http://test.local/order/test';
-        $neworder['body']=json_decode($this->getOrderJSON($orderValid), true);
+        $neworder['body']=json_decode($this->getOrderJSON($orderStatus), true);
         $neworder['status']=201;
 
         $connector->post('http://test.local/new-order', Argument::any())
@@ -52,7 +56,7 @@ class LEOrderTest extends LETestCase
         $orderReq=[];
         $orderReq['header']='200 OK';
         $orderReq['status']=200;
-        $orderReq['body']=json_decode($this->getOrderJSON($orderValid), true);
+        $orderReq['body']=json_decode($this->getOrderJSON($orderStatus), true);
         $connector->get("http://test.local/order/test")->willReturn($orderReq);
 
         //simulate challenge URLs
@@ -216,6 +220,38 @@ PRIVATE;
     }
 
 
+    public function testCreateWithInvalidOrder()
+    {
+        //our connector will return an order with a certificate url
+        $conn = $this->mockConnector(true);
+        $log = new NullLogger();
+        $dns = $this->mockDNS(true);
+        $sleep = $this->mockSleep();
+        $store = $this->initCertStore();
+        $basename='example.org';
+        $domains = ['example.org', 'test.example.org'];
+        $keyType = 'rsa-4096';
+        $notBefore = '';
+        $notAfter = '';
+
+        $this->assertNull($store->getPublicKey($basename));
+
+        //this should create a new order
+        $order = new LEOrder($conn, $store, $log, $dns, $sleep);
+        $order->loadOrder($basename, $domains, $keyType, $notBefore, $notAfter);
+
+        //now we want to load the same order, but we're goign to make it invalid
+        $conn = $this->mockConnector(true, true, 'invalid');
+
+        $order = new LEOrder($conn, $store, $log, $dns, $sleep);
+        $order->loadOrder($basename, $domains, $keyType, $notBefore, $notAfter);
+
+        //it's enough to reach here without getting any exceptions - we could do with a better mock for this
+        //test as the invalid order will get replaced with a fresh one (but also invalid!)
+        $this->assertNotNull($order);
+    }
+
+
 
     public function testHttpAuthorizations()
     {
@@ -373,7 +409,7 @@ PRIVATE;
         $connector->signRequestKid(Argument::any(), Argument::any(), Argument::any())
             ->willReturn(json_encode(['protected'=>'','payload'=>'','signature'=>'']));
 
-        $order = json_decode($this->getOrderJSON($valid), true);
+        $order = json_decode($this->getOrderJSON($valid?'valid':'pending'), true);
         $order['authorizations'] = [];
 
         $neworder=[];
@@ -441,7 +477,7 @@ PRIVATE;
         $neworder=[];
         $neworder['header']='201 Created\r\nLocation: http://test.local/order/test';
         $neworder['status']=201;
-        $neworder['body']=json_decode($this->getOrderJSON($valid), true);
+        $neworder['body']=json_decode($this->getOrderJSON('valid'), true);
         $neworder['body']['status'] = 'processing';
 
         $connector->post('http://test.local/new-order', Argument::any())
@@ -469,7 +505,7 @@ PRIVATE;
         $orderReq=[];
         $orderReq['header']='200 OK';
         $orderReq['status']=200;
-        $orderReq['body']=json_decode($this->getOrderJSON(true), true);
+        $orderReq['body']=json_decode($this->getOrderJSON('valid'), true);
         if (!$eventuallyValid) {
             $orderReq['body']['status'] = 'processing';
         }
