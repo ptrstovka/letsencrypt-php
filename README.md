@@ -234,8 +234,18 @@ Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed re
 
 ## Testing
 
+Unit tests are executed as follows:
+
 ``` bash
 $ composer test
+```
+
+The test suite includes some integration tests with external dependencies, e.g. verifying
+that each supported DNS-over-HTTP service works as expected. The full test suite can be
+run with 
+
+``` bash
+$ composer test-all
 ```
 
 ## Contributing
