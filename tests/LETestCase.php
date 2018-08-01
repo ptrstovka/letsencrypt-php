@@ -273,23 +273,21 @@ JSON;
         return new Response(200, $headers, $body);
     }
 
-    protected function getOrderJSON($valid = false)
+    protected function getOrderJSON($orderStatus = 'pending')
     {
         $expires = new \DateTime;
         $expires->add(new \DateInterval('P7D'));
         $isoExpires = $expires->format('c');
 
-        $status = $valid ? 'valid' : 'pending';
-
         $cert='';
-        if ($valid) {
+        if ($orderStatus === 'valid') {
             $cert = '"certificate": ' .
                 '"https://acme-staging-v02.api.letsencrypt.org/acme/cert/fae09c6dcdaf7aa198092b3170c69129a490",';
         }
 
         $json = <<<JSON
         {
-          "status": "$status",
+          "status": "$orderStatus",
           "expires": "$isoExpires",
           "identifiers": [
             {
