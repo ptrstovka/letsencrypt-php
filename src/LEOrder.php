@@ -149,7 +149,7 @@ class LEOrder
         $get = $this->connector->get($this->orderURL);
         if ($get['status'] !== 200) {
             //@codeCoverageIgnoreStart
-            $this->log->warning("Order for {$this->basename} invalid. Creating new order.");
+            $this->log->warning("Order for {$this->basename} could not be loaded. Creating new order.");
             $this->deleteOrderFiles();
             return false;
             //@codeCoverageIgnoreEnd
@@ -157,11 +157,9 @@ class LEOrder
 
         //ensure the order is still valid
         if ($get['body']['status'] === 'invalid') {
-            //@codeCoverageIgnoreStart
             $this->log->warning("Order for {$this->basename} is 'invalid', unable to authorize. Creating new order.");
             $this->deleteOrderFiles();
             return false;
-            //@codeCoverageIgnoreEnd
         }
 
         //ensure retrieved order matches our domains
