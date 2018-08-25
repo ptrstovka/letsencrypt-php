@@ -1,49 +1,81 @@
-# LEClient
-PHP LetsEncrypt client library for ACME v2. The aim of this client is to make an easy-to-use and integrated solution to create a LetsEncrypt-issued SSL/TLS certificate with PHP. The user has to have access to the web server or DNS management to be able to verify the domain is accessible/owned by the user.
+# PHP Certificate Toolbox
 
-## Current version
+[![Latest Version on Packagist][ico-version]][link-packagist]
+[![Software License][ico-license]](LICENSE.md)
+[![Build Status][ico-travis]][link-travis]
+[![Coverage Status][ico-scrutinizer]][link-scrutinizer]
+[![Quality Score][ico-code-quality]][link-code-quality]
+[![Total Downloads][ico-downloads]][link-downloads]
 
-The current version is 1.1.0
+This is a LetsEncrypt client library for ACME v2, which allows for the automated
+creation of free SSL/TLS certificates using PHP. This includes support for wildcard
+certificates supported by LetsEncrypt since Feb 2018.
 
-This client was developed with the use of the LetsEncrypt staging server for version 2. While version 2 is still being developed and implemented by LetsEncrypt at this moment, the project might be subject to change.
+While this includes a command line tool, the real intent of this library is to 
+make it easy to integrate into existing PHP applications which need to issue
+certificates.
 
-## Getting Started
+See the [LetsEncrypt documentation](https://letsencrypt.org/docs/) for more 
+information and documentation on LetsEncrypt and ACME.
 
-These instructions will get you started with this client library. Is you have any questions or find any problems, feel free to open an issue and I'll try to have a look at it.
+## Origins and roadmap
 
-Also have a look at the [LetsEncrypt documentation](https://letsencrypt.org/docs/) for more information and documentation on LetsEncrypt and ACME.
+This is based on the client developed by [Youri van Weegberg](https://github.com/yourivw/leclient),
+but improved as follows
 
-### Prerequisites
+* composer-installable
+* PSR-2 formatted
+* PSR-3 logger compatible
+* unit tests (some additional refactoring required to support this)
+* support for alternative storage backends
+* support for verifying DNS challenges using DNS-over-HTTPS
 
-The minimum required PHP version is 7.1.0 due to the implementation of ECDSA. Version 1.0.0 does still work with PHP 5.2 since it is not yet compatible with ECDSA, and will be kept available, but will not be maintained.
 
-This client also depends on cURL and OpenSSL.
+## Prerequisites
 
-### Installing
+The minimum required PHP version is 7.1.0 due to the implementation of ECDSA. 
 
-Download and install the LEClient folder and examples wherever you want to install it. You can include the library by adding the following:
-```php
-require_once('LEClient/LEClient.php');
-```
+This client also depends on OpenSSL.
 
-It is advisable to cut the script some slack regarding execution time by setting a higher maximum time. There are several ways to do so. One it to add the following to the top of the page:
-```php
-ini_set('max_execution_time', 120); // Maximum execution time in seconds.
+
+## Install
+
+Via Composer
+
+``` bash
+$ composer require lordelph/php-certificate-toolbox
 ```
 
 ## Usage
 
-The basic functions and its necessary arguments are shown here. An extended description is included in each class.
+The basic functions and its necessary arguments are shown here. An extended description 
+is included in each class.
 
-<br />
+It is advisable to cut the script some slack regarding execution time by setting a higher 
+maximum time. There are several ways to do so. One it to add the following to the top of 
+the page:
+
+```php
+ini_set('max_execution_time', 120); // Maximum execution time in seconds.
+```
 
 Initiating the client:
+
 ```php
-$client = new LEClient($email);                               // Initiating a basic LEClient with an array of string e-mail address(es).
-$client = new LEClient($email, true);                         // Initiating a LECLient and use the LetsEncrypt staging URL.
-$client = new LEClient($email, true, LEClient::LOG_STATUS);   // Initiating a LEClient and log status messages (LOG_DEBUG for full debugging).
+use Elphin\LEClient;
+
+// Initiating a basic LEClient with an array of string e-mail address(es).
+$client = new LEClient($email);                               
+
+// Initiating a LECLient and use the LetsEncrypt staging URL.
+$client = new LEClient($email, true);      
+
+// Initiating a LEClient and log status messages (LOG_DEBUG for full debugging).
+$client = new LEClient($email, true, LEClient::LOG_STATUS);   
 ```
-The client will automatically create a new account if there isn't one found. It will forward the e-mail address(es) supplied during initiation, as shown above.
+
+The client will automatically create a new account if there isn't one found. It will forward 
+the e-mail address(es) supplied during initiation, as shown above.
 
 <br />
 
@@ -94,11 +126,24 @@ LEFunctions::createhtaccess($directory);									// Created a simple .htaccess f
 
 ## Authorization challenges
 
-LetsEncrypt (ACME) performs authorizations on the domains you want to include on your certificate, to verify you actually have access to the specific domain. Therefore, when creating an order, an authorization is added for each domain. If a domain has recently (in the last 30 days) been verified by your account, for example in another order, you don't have to verify again. At this time, a domain can be verified by a HTTP request to a file (http-01) or a DNS TXT record (dns-01). The client supplies the necessary data for the chosen verification by the call to getPendingAuthorizations(). Since creating a file or DNS record differs for every server, this is not implemented in the client. After the user has fulfilled the challenge requirements, a call has to be made to verifyPendingOrderAuthorization(). This client will first verify the challenge with checkHTTPChallenge() or checkDNSChallenge() by itself, before it is starting the verification by LetsEncrypt. Keep in mind, a wildcard domain can only be verified with a DNS challenge. An example for both challenges is shown below.
+LetsEncrypt (ACME) performs authorizations on the domains you want to include on your 
+certificate, to verify you actually have access to the specific domain. Therefore, when 
+creating an order, an authorization is added for each domain. If a domain has recently 
+(in the last 30 days) been verified by your account, for example in another order, you 
+don't have to verify again. At this time, a domain can be verified by a HTTP request to 
+a file (http-01) or a DNS TXT record (dns-01). The client supplies the necessary data 
+for the chosen verification by the call to `getPendingAuthorizations()`. Since creating a 
+file or DNS record differs for every server, this is not implemented in the client. 
+After the user has fulfilled the challenge requirements, a call has to be made to 
+`verifyPendingOrderAuthorization()`. This client will first verify the challenge with 
+`checkHTTPChallenge()` or `checkDNSChallenge()` by itself, before it is starting the 
+verification by LetsEncrypt. Keep in mind, a wildcard domain can only be verified with 
+a DNS challenge. An example for both challenges is shown below.
 
 ### HTTP challenge
 
 For this example, we assume there is one domain left to verify.
+
 ```php
 $pending = $order->getPendingAuthorizations(LEOrder::CHALLENGE_TYPE_HTTP);
 ```
@@ -119,11 +164,16 @@ For a successful verification, a request will be made to the following URL:
 ```
 http://test.example.org/.well-known/acme-challenge/A8Q1DAVcd_k_oKAC0D_y4ln2IWrRX51jmXnR9UMMtOb
 ```
-The content of this file should be set to the content in the array above. The user should create this file before it can verify the authorization.
+The content of this file should be set to the content in the array above. The user should 
+create this file before it can verify the authorization.
 
 ### DNS challenge
 
-For this example, we assume there are two domains left to verify. One is a wildcard domain. The second domain in this example is added for demonstration purposes. Adding a subdomain to the certificate which is also already covered by the wildcard domain is does not offer much added value.
+For this example, we assume there are two domains left to verify. One is a wildcard domain. 
+The second domain in this example is added for demonstration purposes. Adding a subdomain to 
+the certificate which is also already covered by the wildcard domain is does not offer much 
+added value.
+
 ```php
 $pending = $order->getPendingAuthorizations(LEOrder::CHALLENGE_TYPE_DNS);
 ```
@@ -152,22 +202,97 @@ For a successful verification, DNS records should be created as follows:
 | \_acme-challenge.example.org      | 60  | TXT  | FV5HgbpjIYe1x9MkPI81Nffo2oA-Jo2S88gCL7-Ky5P |
 | \_acme-challenge.test.example.org | 60  | TXT  | WM5YIsgaZQv1b9DbRZ81EwCf2fi-Af2JlgxTC7-Up5D |
 
-The TTL value can be set higher if wanted or necessary, I prefer to keep it as low as possible for this purpose. To make sure the verification is successful, it would be advised to run a script using DNS challenges in two parts, with a certain amount of time in between to allow for the DNS record to update. The user himself should make sure to set this DNS record before the record can be verified.
-The DNS record name also depends on your provider, therefore getPendingAuthorizations() does not give you a ready-to-use record name. Some providers only accept a name like `_acme-challenge`, without the top domain name, for `_acme-challenge.example.org`. Some providers accept (require?) a full name like shown above.
+The TTL value can be set higher if wanted or necessary, I prefer to keep it as low as possible for 
+this purpose. To make sure the verification is successful, it would be advised to run a script 
+using DNS challenges in two parts, with a certain amount of time in between to allow for the DNS 
+record to update. The user himself should make sure to set this DNS record before the record can 
+be verified.
 
-*A wildcard domain, like `*.example.org`, will be verified as `example.org`, as shown above. This means the DNS record name should be `_acme-challenge.example.org`*
+The DNS record name also depends on your provider, therefore `getPendingAuthorizations()` does 
+not give you a ready-to-use record name. Some providers only accept a name like `_acme-challenge`, 
+without the top domain name, for `_acme-challenge.example.org`. Some providers accept (require?) 
+a full name like shown above.
+
+*A wildcard domain, like `*.example.org`, will be verified as `example.org`, as shown above. 
+This means the DNS record name should be `_acme-challenge.example.org`*
 
 ## Full example
 
-For both HTTP and DNS authorizations, a full example is available in the project's main code directory. The HTTP authorization example is contained in one file. As described above, the DNS authorization example is split into two parts, to allow for the DNS record to update in the meantime. While the TTL of the record might be low, it can sometimes take some time for your provider to update your DNS records after an amendment.
+For both HTTP and DNS authorizations, a full example is available in the project's main code 
+directory. The HTTP authorization example is contained in one file. As described above, the 
+DNS authorization example is split into two parts, to allow for the DNS record to update in 
+the meantime. While the TTL of the record might be low, it can sometimes take some time for 
+your provider to update your DNS records after an amendment.
 
-If you can't get these examples, or the client library to work, try and have a look at the LetsEncrypt documentation mentioned above as well.
+If you can't get these examples, or the client library to work, try and have a look at the 
+LetsEncrypt documentation mentioned above as well.
+
+
+## Change log
+
+Please see [CHANGELOG](CHANGELOG.md) for more information on what has changed recently.
+
+## Testing
+
+Unit tests are executed as follows:
+
+``` bash
+$ composer test
+```
+
+The test suite includes some integration tests with external dependencies, e.g. verifying
+that each supported DNS-over-HTTP service works as expected. The full test suite can be
+run with 
+
+``` bash
+$ composer test-all
+```
+
+## Contributing
+
+Please see [CONTRIBUTING](CONTRIBUTING.md) and [CODE_OF_CONDUCT](CODE_OF_CONDUCT.md) for details.
+
 
 ## Security
 
-Security is an important subject regarding SSL/TLS certificates, of course. Since this client is a PHP script, it is likely this code is running on a web server. It is obvious that your private key, stored on your web server, should never be accessible from the web.
-When the client created the keys directory for the first time, it will store a .htaccess file in this directory, denying all visitors. Always make sure yourself your keys aren't accessible from the web! I am in no way responsible if your private keys go public. If this does happen, the easiest solution is to change your account keys (described above) or deactivate your account and create a new one. Next, create a new certificate.
+Security is an important subject regarding SSL/TLS certificates, of course. Since this client is 
+a PHP script, it is likely this code is running on a web server. It is obvious that your private 
+key, stored on your web server, should never be accessible from the web.
+
+When the client created the keys directory for the first time, it will store a .htaccess file in 
+this directory, denying all visitors. Always make sure yourself your keys aren't accessible from 
+the web! I am in no way responsible if your private keys go public. If this does happen, the 
+easiest solution is to change your account keys (described above) or deactivate your account and 
+create a new one. Next, create a new certificate.
+
+If you discover any security related issues, please email paul@elphin.com instead of using the 
+issue tracker.
+
+## Credits
+
+- [Paul Dixon][link-author] Refactoring inc unit tests and storage interface
+- [Youri van Weegberg][link-author2] Original PHP ACME2 client on which this is based
+- [wutno][link-author3] DNS-over-HTTPS support
+
+- [All Contributors][link-contributors]
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
+
+[ico-version]: https://img.shields.io/packagist/v/lordelph/php-certificate-toolbox.svg?style=flat-square
+[ico-license]: https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square
+[ico-travis]: https://img.shields.io/travis/lordelph/php-certificate-toolbox/master.svg?style=flat-square
+[ico-scrutinizer]: https://img.shields.io/scrutinizer/coverage/g/lordelph/php-certificate-toolbox.svg?style=flat-square
+[ico-code-quality]: https://img.shields.io/scrutinizer/g/lordelph/php-certificate-toolbox.svg?style=flat-square
+[ico-downloads]: https://img.shields.io/packagist/dt/lordelph/php-certificate-toolbox.svg?style=flat-square
+
+[link-packagist]: https://packagist.org/packages/lordelph/php-certificate-toolbox
+[link-travis]: https://travis-ci.org/lordelph/php-certificate-toolbox
+[link-scrutinizer]: https://scrutinizer-ci.com/g/lordelph/php-certificate-toolbox/code-structure
+[link-code-quality]: https://scrutinizer-ci.com/g/lordelph/php-certificate-toolbox
+[link-downloads]: https://packagist.org/packages/lordelph/php-certificate-toolbox
+[link-author]: https://github.com/lordelph
+[link-author2]: https://github.com/yourivw
+[link-author3]:https://github.com/GXTX
+[link-contributors]: ../../contributors

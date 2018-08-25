@@ -1,14 +1,63 @@
 {
-    "name": "yourivw/LEClient",
+    "name": "lordelph/php-certificate-toolbox",
     "type": "library",
-    "description": "PHP LetsEncrypt client library for ACME v2",
-    "repositories": [
+    "description": "ACME v2 client for Let's Encrypt",
+    "keywords": [
+        "Lets Encrypt",
+        "ACME",
+        "LE",
+        "Certificate"
+    ],
+    "homepage": "https://github.com/lordelph/php-certificate-toolbox",
+    "license": "MIT",
+    "authors": [
         {
-            "url": "https://github.com/yourivw/LEClient.git",
-            "type": "git"
+            "name": "Paul Dixon",
+            "email": "paul@elphin.com",
+            "homepage": "http://blog.dixo.net",
+            "role": "Developer"
+        },
+        {
+            "name": "Youri van Weegberg",
+            "homepage": "https://github.com/yourivw/LEClient",
+            "role": "Developer"
         }
     ],
     "require": {
-        "yourivw/LEClient": "^1.1.0"
+        "php": "~7.1",
+        "ext-openssl": "*",
+        "guzzlehttp/guzzle": "~6.0",
+        "psr/log": "^1.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit" : ">=5.4.3",
+        "squizlabs/php_codesniffer": "^2.3"
+    },
+    "suggest": {
+        "psr/log-implementation": "A PSR-3 compatible logger is recommended for troubleshooting"
+    },
+    "autoload": {
+        "psr-4": {
+            "Elphin\\PHPCertificateToolbox\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Elphin\\PHPCertificateToolbox\\": "tests"
+        }
+    },
+    "scripts": {
+        "test": "phpunit --exclude-group integration",
+        "test-all": "phpunit",
+        "check-style": "phpcs -p --standard=PSR2 --runtime-set ignore_errors_on_exit 1 --runtime-set ignore_warnings_on_exit 1 src tests",
+        "fix-style": "phpcbf -p --standard=PSR2 --runtime-set ignore_errors_on_exit 1 --runtime-set ignore_warnings_on_exit 1 src tests"
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "1.0-dev"
+        }
+    },
+    "config": {
+        "sort-packages": true
     }
 }
