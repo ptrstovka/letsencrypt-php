@@ -18,19 +18,6 @@ certificates.
 See the [LetsEncrypt documentation](https://letsencrypt.org/docs/) for more 
 information and documentation on LetsEncrypt and ACME.
 
-## Origins and roadmap
-
-This is based on the client developed by [Youri van Weegberg](https://github.com/yourivw/leclient),
-but improved as follows
-
-* composer-installable
-* PSR-2 formatted
-* PSR-3 logger compatible
-* unit tests (some additional refactoring required to support this)
-* support for alternative storage backends
-* support for verifying DNS challenges using DNS-over-HTTPS
-
-
 ## Prerequisites
 
 The minimum required PHP version is 7.1.0 due to the implementation of ECDSA. 
@@ -43,7 +30,7 @@ This client also depends on OpenSSL.
 Via Composer
 
 ``` bash
-$ composer require lordelph/php-certificate-toolbox
+$ composer require ptrstovka/letsencrypt-php
 ```
 
 ## Usage
@@ -265,7 +252,7 @@ the web! I am in no way responsible if your private keys go public. If this does
 easiest solution is to change your account keys (described above) or deactivate your account and 
 create a new one. Next, create a new certificate.
 
-If you discover any security related issues, please email paul@elphin.com instead of using the 
+If you discover any security related issues, please email peter@peterstovka.com instead of using the
 issue tracker.
 
 ## Credits
@@ -280,19 +267,20 @@ issue tracker.
 
 The MIT License (MIT). Please see [License File](LICENSE.md) for more information.
 
-[ico-version]: https://img.shields.io/packagist/v/lordelph/php-certificate-toolbox.svg?style=flat-square
-[ico-license]: https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square
-[ico-travis]: https://img.shields.io/travis/lordelph/php-certificate-toolbox/master.svg?style=flat-square
-[ico-scrutinizer]: https://img.shields.io/scrutinizer/coverage/g/lordelph/php-certificate-toolbox.svg?style=flat-square
-[ico-code-quality]: https://img.shields.io/scrutinizer/g/lordelph/php-certificate-toolbox.svg?style=flat-square
-[ico-downloads]: https://img.shields.io/packagist/dt/lordelph/php-certificate-toolbox.svg?style=flat-square
+## Dvelopers
 
-[link-packagist]: https://packagist.org/packages/lordelph/php-certificate-toolbox
-[link-travis]: https://travis-ci.org/lordelph/php-certificate-toolbox
-[link-scrutinizer]: https://scrutinizer-ci.com/g/lordelph/php-certificate-toolbox/code-structure
-[link-code-quality]: https://scrutinizer-ci.com/g/lordelph/php-certificate-toolbox
-[link-downloads]: https://packagist.org/packages/lordelph/php-certificate-toolbox
-[link-author]: https://github.com/lordelph
-[link-author2]: https://github.com/yourivw
-[link-author3]:https://github.com/GXTX
+This is bare clone of fork developed by [Paul Dixon](https://github.com/lordelph/php-certificate-toolbox).
+
+[ico-version]: https://img.shields.io/packagist/v/ptrstovka/letsencrypt-php.svg?style=flat-square
+[ico-license]: https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square
+[ico-travis]: https://img.shields.io/travis/ptrstovka/letsencrypt-php/master.svg?style=flat-square
+[ico-scrutinizer]: https://img.shields.io/scrutinizer/coverage/g/ptrstovka/letsencrypt-php.svg?style=flat-square
+[ico-code-quality]: https://img.shields.io/scrutinizer/g/ptrstovka/letsencrypt-php.svg?style=flat-square
+[ico-downloads]: https://img.shields.io/packagist/dt/ptrstovka/letsencrypt-php.svg?style=flat-square
+
+[link-packagist]: https://packagist.org/packages/ptrstovka/letsencrypt-php
+[link-travis]: https://travis-ci.org/ptrstovka/letsencrypt-php
+[link-scrutinizer]: https://scrutinizer-ci.com/g/ptrstovka/letsencrypt-php/code-structure
+[link-code-quality]: https://scrutinizer-ci.com/g/ptrstovka/letsencrypt-php
+[link-downloads]: https://packagist.org/packages/ptrstovka/letsencrypt-php
 [link-contributors]: ../../contributors

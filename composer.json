@@ -1,5 +1,5 @@
 {
-    "name": "lordelph/php-certificate-toolbox",
+    "name": "ptrstovka/letsencrypt-php",
     "type": "library",
     "description": "ACME v2 client for Let's Encrypt",
     "keywords": [
@@ -8,7 +8,7 @@
         "LE",
         "Certificate"
     ],
-    "homepage": "https://github.com/lordelph/php-certificate-toolbox",
+    "homepage": "https://github.com/ptrstovka/letsencrypt-php",
     "license": "MIT",
     "authors": [
         {
@@ -21,6 +21,10 @@
             "name": "Youri van Weegberg",
             "homepage": "https://github.com/yourivw/LEClient",
             "role": "Developer"
+        },
+        {
+            "name": "Peter Stovka",
+            "email": "peter@peterstovka.com"
         }
     ],
     "require": {
