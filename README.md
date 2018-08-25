@@ -3,8 +3,6 @@
 [![Latest Version on Packagist][ico-version]][link-packagist]
 [![Software License][ico-license]](LICENSE.md)
 [![Build Status][ico-travis]][link-travis]
-[![Coverage Status][ico-scrutinizer]][link-scrutinizer]
-[![Quality Score][ico-code-quality]][link-code-quality]
 [![Total Downloads][ico-downloads]][link-downloads]
 
 This is a LetsEncrypt client library for ACME v2, which allows for the automated
@@ -274,13 +272,9 @@ This is bare clone of fork developed by [Paul Dixon](https://github.com/lordelph
 [ico-version]: https://img.shields.io/packagist/v/ptrstovka/letsencrypt-php.svg?style=flat-square
 [ico-license]: https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square
 [ico-travis]: https://img.shields.io/travis/ptrstovka/letsencrypt-php/master.svg?style=flat-square
-[ico-scrutinizer]: https://img.shields.io/scrutinizer/coverage/g/ptrstovka/letsencrypt-php.svg?style=flat-square
-[ico-code-quality]: https://img.shields.io/scrutinizer/g/ptrstovka/letsencrypt-php.svg?style=flat-square
 [ico-downloads]: https://img.shields.io/packagist/dt/ptrstovka/letsencrypt-php.svg?style=flat-square
 
 [link-packagist]: https://packagist.org/packages/ptrstovka/letsencrypt-php
 [link-travis]: https://travis-ci.org/ptrstovka/letsencrypt-php
-[link-scrutinizer]: https://scrutinizer-ci.com/g/ptrstovka/letsencrypt-php/code-structure
-[link-code-quality]: https://scrutinizer-ci.com/g/ptrstovka/letsencrypt-php
 [link-downloads]: https://packagist.org/packages/ptrstovka/letsencrypt-php
 [link-contributors]: ../../contributors
