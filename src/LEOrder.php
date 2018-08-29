@@ -649,7 +649,7 @@ class LEOrder
      */
     public function finalizeOrder($csr = '')
     {
-        if ($this->status == 'pending') {
+        if ($this->status == 'pending' || $this->status == 'ready') {
             if ($this->allAuthorizationsValid()) {
                 if (empty($csr)) {
                     $csr = $this->generateCSR();
