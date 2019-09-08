@@ -2,6 +2,7 @@
 namespace Elphin\PHPCertificateToolbox;
 
 use Elphin\PHPCertificateToolbox\Exception\RuntimeException;
+use Elphin\PHPCertificateToolbox\Support\Arrays;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -23,7 +24,7 @@ class LEAccount
     public $createdAt;
     public $status;
 
-    /** @var LoggerInterface  */
+    /** @var LoggerInterface */
     private $log;
 
     /** @var CertificateStorageInterface */
@@ -33,10 +34,10 @@ class LEAccount
      * Initiates the LetsEncrypt Account class.
      *
      * @param LEConnector $connector The LetsEncrypt Connector instance to use for HTTP requests.
-     * @param LoggerInterface $log   PSR-3 compatible logger
-     * @param array $email           The array of strings containing e-mail addresses. Only used when creating a
+     * @param LoggerInterface $log PSR-3 compatible logger
+     * @param array $email The array of strings containing e-mail addresses. Only used when creating a
      *                               new account.
-     * @param CertificateStorageInterface $storage  storage for account keys
+     * @param CertificateStorageInterface $storage storage for account keys
      */
     public function __construct($connector, LoggerInterface $log, $email, CertificateStorageInterface $storage)
     {
@@ -45,7 +46,7 @@ class LEAccount
         $this->log = $log;
 
         if (empty($storage->getAccountPublicKey()) || empty($storage->getAccountPrivateKey())) {
-            $this->log->notice("No account found for ".implode(',', $email).", attempting to create account");
+            $this->log->notice("No account found for " . implode(',', $email) . ", attempting to create account");
 
             $accountKey = LEFunctions::RSAgenerateKeys();
             $storage->setAccountPublicKey($accountKey['public']);
@@ -64,7 +65,7 @@ class LEAccount
     /**
      * Creates a new LetsEncrypt account.
      *
-     * @param array     $email  The array of strings containing e-mail addresses.
+     * @param array $email The array of strings containing e-mail addresses.
      *
      * @return string|bool   Returns the new account URL when the account was successfully created, false if not.
      */
@@ -119,19 +120,25 @@ class LEAccount
         );
         $post = $this->connector->post($this->connector->accountURL, $sign);
         if (strpos($post['header'], "200 OK") !== false) {
-            $this->id = $post['body']['id'];
-            $this->key = $post['body']['key'];
-            $this->contact = $post['body']['contact'];
-            $this->agreement = isset($post['body']['agreement']) ? $post['body']['agreement'] : null;
-            $this->initialIp = $post['body']['initialIp'];
-            $this->createdAt = $post['body']['createdAt'];
-            $this->status = $post['body']['status'];
+            $this->setFields($post);
         } else {
             //@codeCoverageIgnoreStart
             throw new RuntimeException('Account data cannot be found.');
             //@codeCoverageIgnoreEnd
         }
     }
+
+    protected function setFields($data)
+    {
+        $this->id = Arrays::get($data, 'body.id');
+        $this->key = Arrays::get($data, 'body.key');
+        $this->contact = Arrays::get($data, 'body.contact');
+        $this->agreement = Arrays::get($data, 'body.agreement');
+        $this->initialIp = Arrays::get($data, 'body.initialIp');
+        $this->createdAt = Arrays::get($data, 'body.createdAt');
+        $this->status = Arrays::get($data, 'body.status');
+    }
+
 
     /**
      * Updates account data. Now just supporting new contact information.
@@ -158,13 +165,7 @@ class LEAccount
             //@codeCoverageIgnoreEnd
         }
 
-        $this->id = $post['body']['id'];
-        $this->key = $post['body']['key'];
-        $this->contact = $post['body']['contact'];
-        $this->agreement = $post['body']['agreement'];
-        $this->initialIp = $post['body']['initialIp'];
-        $this->createdAt = $post['body']['createdAt'];
-        $this->status = $post['body']['status'];
+        $this->setFields($post);
 
         $this->log->notice('Account data updated');
         return true;

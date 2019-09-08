@@ -51,7 +51,7 @@ class LEOrder
 
     /** @var int size of key (typically 2048 or 4096 for rsa, 256 or 384 for ec */
     private $keySize;
-    
+
     /** @var LEConnector ACME API connection provided to constructor */
     private $connector;
 
@@ -85,7 +85,7 @@ class LEOrder
         DNSValidatorInterface $dns,
         Sleep $sleep
     ) {
-    
+
         $this->connector = $connector;
         $this->log = $log;
         $this->dns = $dns;
