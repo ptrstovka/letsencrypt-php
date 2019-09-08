@@ -138,11 +138,10 @@ class LEClientTest extends LETestCase
         $this->assertEquals(LEClient::LE_PRODUCTION, $client->getBaseUrl());
     }
 
-    /**
-     * @expectedException LogicException
-     */
     public function testInvalidBaseUrl()
     {
+        $this->expectException(LogicException::class);
+
         $logger = new DiagnosticLogger();
         $http = $this->prophesize(Client::class);
         $keys = sys_get_temp_dir() . '/le-client-test';

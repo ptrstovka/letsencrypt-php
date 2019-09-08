@@ -42,12 +42,10 @@ class LEConnectorTest extends LETestCase
         $this->assertNotNull($connector);
     }
 
-
-    /**
-     * @expectedException RuntimeException
-     */
     public function testBadRequest()
     {
+        $this->expectException(RuntimeException::class);
+
         $logger=new DiagnosticLogger();
 
         // when the LEConnector is constructed, it requests the directory and get a new nonce, so
@@ -64,11 +62,10 @@ class LEConnectorTest extends LETestCase
         new LEConnector($logger, $client, 'https://acme-staging-v02.api.letsencrypt.org', $store);
     }
 
-    /**
-     * @expectedException LogicException
-     */
     public function testDeactivated()
     {
+        $this->expectException(LogicException::class);
+
         $logger=new DiagnosticLogger();
 
         // when the LEConnector is constructed, it requests the directory and get a new nonce, so
@@ -95,10 +92,11 @@ class LEConnectorTest extends LETestCase
     /**
      * Just for coverage, this checks that if guzzle throws some kind of internal failure, we
      * in turn throw a RuntimeException
-     * @expectedException RuntimeException
      */
     public function testGuzzleException()
     {
+        $this->expectException(RuntimeException::class);
+
         $logger=new DiagnosticLogger();
         $mock = new MockHandler([
             new TransferException("Guzzle failure")

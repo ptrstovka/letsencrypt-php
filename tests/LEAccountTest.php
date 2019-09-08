@@ -92,11 +92,10 @@ class LEAccountTest extends LETestCase
         $this->assertTrue(true);
     }
 
-    /**
-     * @expectedException RuntimeException
-     */
     public function testNotFound()
     {
+        $this->expectException(RuntimeException::class);
+
         $conn = $this->mockConnector();
         $log = new NullLogger();
         $store = $this->initCertStorage();

@@ -13,15 +13,14 @@ class LEFunctionsTest extends TestCase
 
         $this->assertArrayHasKey('public', $keys);
         $this->assertArrayHasKey('private', $keys);
-        $this->assertContains('BEGIN PUBLIC KEY', $keys['public']);
-        $this->assertContains('BEGIN PRIVATE KEY', $keys['private']);
+        $this->assertStringContainsString('BEGIN PUBLIC KEY', $keys['public']);
+        $this->assertStringContainsString('BEGIN PRIVATE KEY', $keys['private']);
     }
 
-    /**
-     * @expectedException LogicException
-     */
     public function testRSAGenerateKeysWithInvalidLength()
     {
+        $this->expectException(LogicException::class);
+
         LEFunctions::RSAGenerateKeys(111);
     }
 
@@ -34,8 +33,8 @@ class LEFunctionsTest extends TestCase
 
         $this->assertArrayHasKey('public', $keys);
         $this->assertArrayHasKey('private', $keys);
-        $this->assertContains('BEGIN PUBLIC KEY', $keys['public']);
-        $this->assertContains('BEGIN EC PRIVATE KEY', $keys['private']);
+        $this->assertStringContainsString('BEGIN PUBLIC KEY', $keys['public']);
+        $this->assertStringContainsString('BEGIN EC PRIVATE KEY', $keys['private']);
     }
 
     public function ecKeyLengthProvider()
@@ -43,11 +42,10 @@ class LEFunctionsTest extends TestCase
         return [[256], [384]];
     }
 
-    /**
-     * @expectedException LogicException
-     */
     public function testECGenerateKeysWithInvalidLength()
     {
+        $this->expectException(LogicException::class);
+
         LEFunctions::ECGenerateKeys(111);
     }
 

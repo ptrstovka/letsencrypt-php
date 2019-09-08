@@ -57,7 +57,7 @@ class LEConnector
         $baseURL,
         CertificateStorageInterface $storage
     ) {
-    
+
         $this->baseURL = $baseURL;
         $this->storage = $storage;
         $this->log = $log;
@@ -87,7 +87,7 @@ class LEConnector
     {
         $result = $this->head($this->newNonce);
 
-        if ($result['status'] !== 200) {
+        if ($result['status'] !== 204) {
             //@codeCoverageIgnoreStart
             throw new RuntimeException("No new nonce - fetched {$this->newNonce} got " . $result['header']);
             //@codeCoverageIgnoreEnd

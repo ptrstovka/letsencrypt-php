@@ -11,11 +11,9 @@ use Elphin\PHPCertificateToolbox\Exception\RuntimeException;
  */
 class FilesystemCertificateStorageTest extends LETestCase
 {
-    /**
-     * @expectedException RuntimeException
-     */
     public function testBadDir()
     {
+        $this->expectException(RuntimeException::class);
         $dir=sys_get_temp_dir().'/this/does/not/exist';
         new FilesystemCertificateStorage($dir);
     }

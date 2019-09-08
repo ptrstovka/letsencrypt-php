@@ -18,10 +18,10 @@ class DiagnosticLoggerTest extends TestCase
         ob_start();
         $logger->dumpConsole();
         $text  = ob_get_clean();
-        $this->assertContains('hello world', $text);
+        $this->assertStringContainsString('hello world', $text);
 
         $html=$logger->dumpHTML(false);
-        $this->assertContains('hello world', $html);
+        $this->assertStringContainsString('hello world', $html);
 
         $logger->cleanLogs();
         $this->assertEquals(0, $logger->countLogs('info'));

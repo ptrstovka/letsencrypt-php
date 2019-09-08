@@ -3,3 +3,4 @@ build
 composer.lock
 vendor
 examples/keys
+.phpunit.result.cache
