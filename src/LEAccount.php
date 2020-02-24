@@ -14,7 +14,7 @@ use Psr\Log\LoggerInterface;
  */
 class LEAccount
 {
-    private $connector;
+    protected $connector;
 
     public $id;
     public $key;
@@ -25,10 +25,10 @@ class LEAccount
     public $status;
 
     /** @var LoggerInterface */
-    private $log;
+    protected $log;
 
     /** @var CertificateStorageInterface */
-    private $storage;
+    protected $storage;
 
     /**
      * Initiates the LetsEncrypt Account class.
@@ -69,7 +69,7 @@ class LEAccount
      *
      * @return string|bool   Returns the new account URL when the account was successfully created, false if not.
      */
-    private function createLEAccount($email)
+    protected function createLEAccount($email)
     {
         $contact = array_map(function ($addr) {
             return empty($addr) ? '' : (strpos($addr, 'mailto') === false ? 'mailto:' . $addr : $addr);
@@ -95,7 +95,7 @@ class LEAccount
      *
      * @return string|bool   Returns the account URL if it is found, or false when none is found.
      */
-    private function getLEAccount()
+    protected function getLEAccount()
     {
         $sign = $this->connector->signRequestJWK(['onlyReturnExisting' => true], $this->connector->newAccount);
         $post = $this->connector->post($this->connector->newAccount, $sign);
@@ -111,7 +111,7 @@ class LEAccount
     /**
      * Gets the LetsEncrypt account data from the account URL.
      */
-    private function getLEAccountData()
+    protected function getLEAccountData()
     {
         $sign = $this->connector->signRequestKid(
             ['' => ''],

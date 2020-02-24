@@ -48,14 +48,14 @@ class DNSOverHTTPS implements DNSValidatorInterface
      *
      * @var null|string
      */
-    private $baseURI;
+    protected $baseURI;
 
     /**
      * Guzzle client handler
      *
      * @var Client object
      */
-    private $client;
+    protected $client;
 
     /**
      * DNSOverHTTPS constructor.

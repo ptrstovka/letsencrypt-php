@@ -23,7 +23,7 @@ class LEConnector
 {
     public $baseURL;
 
-    private $nonce;
+    protected $nonce;
 
     public $keyChange;
     public $newAccount;
@@ -35,13 +35,13 @@ class LEConnector
     public $accountDeactivated = false;
 
     /** @var LoggerInterface */
-    private $log;
+    protected $log;
 
     /** @var ClientInterface */
-    private $httpClient;
+    protected $httpClient;
 
     /** @var CertificateStorageInterface */
-    private $storage;
+    protected $storage;
 
     /**
      * Initiates the LetsEncrypt Connector class.
@@ -70,7 +70,7 @@ class LEConnector
     /**
      * Requests the LetsEncrypt Directory and stores the necessary URLs in this LetsEncrypt Connector instance.
      */
-    private function getLEDirectory()
+    protected function getLEDirectory()
     {
         $req = $this->get('/directory');
         $this->keyChange = $req['body']['keyChange'];
@@ -83,7 +83,7 @@ class LEConnector
     /**
      * Requests a new nonce from the LetsEncrypt server and stores it in this LetsEncrypt Connector instance.
      */
-    private function getNewNonce()
+    protected function getNewNonce()
     {
         $result = $this->head($this->newNonce);
 
@@ -133,7 +133,7 @@ class LEConnector
      *
      * @return array Returns an array with the keys 'request', 'header' and 'body'.
      */
-    private function request($method, $URL, $data = null)
+    protected function request($method, $URL, $data = null)
     {
         if ($this->accountDeactivated) {
             throw new LogicException('The account was deactivated. No further requests can be made.');
@@ -175,7 +175,7 @@ class LEConnector
         return $this->formatResponse($method, $requestURL, $response);
     }
 
-    private function formatResponse($method, $requestURL, ResponseInterface $response)
+    protected function formatResponse($method, $requestURL, ResponseInterface $response)
     {
         $body = $response->getBody();
 
@@ -210,7 +210,7 @@ class LEConnector
         return $jsonresponse;
     }
 
-    private function maintainNonce($requestMethod, ResponseInterface $response)
+    protected function maintainNonce($requestMethod, ResponseInterface $response)
     {
         if ($response->hasHeader('Replay-Nonce')) {
             $this->nonce = $response->getHeader('Replay-Nonce')[0];

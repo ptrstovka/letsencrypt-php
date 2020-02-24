@@ -10,7 +10,7 @@ use Elphin\PHPCertificateToolbox\Exception\RuntimeException;
  */
 class FilesystemCertificateStorage implements CertificateStorageInterface
 {
-    private $dir;
+    protected $dir;
 
     public function __construct($dir = null)
     {
@@ -57,7 +57,7 @@ class FilesystemCertificateStorage implements CertificateStorageInterface
         $this->setMetadata('account.key', $key);
     }
 
-    private function getDomainKey($domain, $suffix)
+    protected function getDomainKey($domain, $suffix)
     {
         return str_replace('*', 'wildcard', $domain).'.'.$suffix;
     }
@@ -125,7 +125,7 @@ class FilesystemCertificateStorage implements CertificateStorageInterface
         $this->setMetadata($this->getDomainKey($domain, 'public'), $key);
     }
 
-    private function getMetadataFilename($key)
+    protected function getMetadataFilename($key)
     {
         $key=str_replace('*', 'wildcard', $key);
         $file=$this->dir.DIRECTORY_SEPARATOR.$key;
