@@ -76,14 +76,14 @@ class LEOrder
      * @param CertificateStorageInterface $storage
      * @param LoggerInterface $log PSR-3 compatible logger
      * @param DNSValidatorInterface $dns DNS challenge checking service
-     * @param Sleep $sleep Sleep service for polling
+     * @param WaitInterface $sleep Sleep service for polling
      */
     public function __construct(
         LEConnector $connector,
         CertificateStorageInterface $storage,
         LoggerInterface $log,
         DNSValidatorInterface $dns,
-        Sleep $sleep
+        WaitInterface $sleep
     ) {
 
         $this->connector = $connector;

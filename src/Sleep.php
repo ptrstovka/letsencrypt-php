@@ -8,7 +8,7 @@ namespace Elphin\PHPCertificateToolbox;
  *
  * @codeCoverageIgnore
  */
-class Sleep
+class Sleep implements WaitInterface
 {
     public function for($seconds)
     {
