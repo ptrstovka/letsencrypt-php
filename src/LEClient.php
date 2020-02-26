@@ -114,9 +114,9 @@ class LEClient
 
     /**
      * Inject alternative sleep service for testing
-     * @param Sleep $sleep
+     * @param WaitInterface $sleep
      */
-    public function setSleep(Sleep $sleep)
+    public function setSleep(WaitInterface $sleep)
     {
         $this->sleep = $sleep;
     }
