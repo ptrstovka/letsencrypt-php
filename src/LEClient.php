@@ -25,30 +25,30 @@ class LEClient
     const LE_STAGING = 'https://acme-staging-v02.api.letsencrypt.org';
 
     /** @var LEConnector */
-    private $connector;
+    protected $connector;
 
     /** @var LEAccount */
-    private $account;
+    protected $account;
 
-    private $baseURL;
+    protected $baseURL;
 
     /** @var LoggerInterface */
-    private $log;
+    protected $log;
 
     /** @var ClientInterface */
-    private $httpClient;
+    protected $httpClient;
 
     /** @var DNSValidatorInterface */
-    private $dns;
+    protected $dns;
 
     /** @var Sleep */
-    private $sleep;
+    protected $sleep;
 
     /** @var CertificateStorageInterface */
-    private $storage;
+    protected $storage;
 
 
-    private $email;
+    protected $email;
 
     /**
      * Initiates the LetsEncrypt main client.
@@ -87,7 +87,7 @@ class LEClient
         $this->email = $email;
     }
 
-    private function initBaseUrl($acmeURL)
+    protected function initBaseUrl($acmeURL)
     {
         if (is_bool($acmeURL)) {
             $this->baseURL = $acmeURL ? LEClient::LE_STAGING : LEClient::LE_PRODUCTION;
@@ -121,7 +121,7 @@ class LEClient
         $this->sleep = $sleep;
     }
 
-    private function getConnector()
+    protected function getConnector()
     {
         if (!isset($this->connector)) {
             $this->connector = new LEConnector($this->log, $this->httpClient, $this->baseURL, $this->storage);

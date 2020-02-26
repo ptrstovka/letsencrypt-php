@@ -20,52 +20,52 @@ class LEOrder
     const CHALLENGE_TYPE_DNS = 'dns-01';
 
     /** @var string order status (pending, processing, valid) */
-    private $status;
+    protected $status;
 
     /** @var string expiration date for order */
-    private $expires;
+    protected $expires;
 
     /** @var array containing all the domain identifiers for the order */
-    private $identifiers;
+    protected $identifiers;
 
     /** @var string[] URLs to all the authorization objects for this order */
-    private $authorizationURLs;
+    protected $authorizationURLs;
 
     /** @var LEAuthorization[] array of authorization objects for the order */
-    private $authorizations;
+    protected $authorizations;
 
     /** @var string URL for order finalization */
-    private $finalizeURL;
+    protected $finalizeURL;
 
     /** @var string URL for obtaining certificate */
-    private $certificateURL;
+    protected $certificateURL;
 
     /** @var string base domain name for certificate */
-    private $basename;
+    protected $basename;
 
     /** @var string URL referencing order */
-    private $orderURL;
+    protected $orderURL;
 
     /** @var string type of key (rsa or ec) */
-    private $keyType;
+    protected $keyType;
 
     /** @var int size of key (typically 2048 or 4096 for rsa, 256 or 384 for ec */
-    private $keySize;
+    protected $keySize;
 
     /** @var LEConnector ACME API connection provided to constructor */
-    private $connector;
+    protected $connector;
 
     /** @var LoggerInterface logger provided to constructor */
-    private $log;
+    protected $log;
 
     /** @var DNSValidatorInterface dns resolution provider to constructor*/
-    private $dns;
+    protected $dns;
 
     /** @var Sleep sleep service provided to constructor */
-    private $sleep;
+    protected $sleep;
 
     /** @var CertificateStorageInterface storage interface provided to constructor */
-    private $storage;
+    protected $storage;
 
     /**
      * Initiates the LetsEncrypt Order class. If the base name is found in the $keysDir directory, the order data is
@@ -123,7 +123,7 @@ class LEOrder
         }
     }
 
-    private function loadExistingOrder($domains)
+    protected function loadExistingOrder($domains)
     {
         $orderUrl = $this->storage->getMetadata($this->basename.'.order.url');
         $publicKey = $this->storage->getPublicKey($this->basename);
@@ -186,7 +186,7 @@ class LEOrder
         return true;
     }
 
-    private function deleteOrderFiles()
+    protected function deleteOrderFiles()
     {
         $this->storage->setPrivateKey($this->basename, null);
         $this->storage->setPublicKey($this->basename, null);
@@ -195,7 +195,7 @@ class LEOrder
         $this->storage->setMetadata($this->basename.'.order.url', null);
     }
 
-    private function initialiseKeyTypeAndSize($keyType)
+    protected function initialiseKeyTypeAndSize($keyType)
     {
         if ($keyType == 'rsa') {
             $this->keyType = 'rsa';
@@ -225,7 +225,7 @@ class LEOrder
      * @param string $notAfter A date string formatted like 0000-00-00T00:00:00Z (yyyy-mm-dd hh:mm:ss)
      *                          until which the certificate is valid.
      */
-    private function createOrder($domains, $notBefore, $notAfter)
+    protected function createOrder($domains, $notBefore, $notAfter)
     {
         if (!preg_match('~(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z|^$)~', $notBefore) ||
             !preg_match('~(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z|^$)~', $notAfter)
@@ -277,7 +277,7 @@ class LEOrder
         $this->log->info('Created order for ' . $this->basename);
     }
 
-    private function generateKeys()
+    protected function generateKeys()
     {
         if ($this->keyType == "rsa") {
             $key = LEFunctions::RSAgenerateKeys($this->keySize);
@@ -292,7 +292,7 @@ class LEOrder
     /**
      * Fetches the latest data concerning this LetsEncrypt Order instance and fills this instance with the new data.
      */
-    private function updateOrderData()
+    protected function updateOrderData()
     {
         $get = $this->connector->get($this->orderURL);
         if (strpos($get['header'], "200 OK") !== false) {
@@ -316,7 +316,7 @@ class LEOrder
      * Fetches the latest data concerning all authorizations connected to this LetsEncrypt Order instance and
      * creates and stores a new LetsEncrypt Authorization instance for each one.
      */
-    private function updateAuthorizations()
+    protected function updateAuthorizations()
     {
         $this->authorizations = [];
         foreach ($this->authorizationURLs as $authURL) {
@@ -347,7 +347,7 @@ class LEOrder
         return false;
     }
 
-    private function loadAccountKey()
+    protected function loadAccountKey()
     {
         $keydata = $this->storage->getAccountPrivateKey();
         $privateKey = openssl_pkey_get_private($keydata);
@@ -360,7 +360,7 @@ class LEOrder
     }
 
 
-    private function loadCertificateKey()
+    protected function loadCertificateKey()
     {
         $keydata = $this->storage->getPrivateKey($this->basename);
         $privateKey = openssl_pkey_get_private($keydata);
@@ -482,7 +482,7 @@ class LEOrder
         //@codeCoverageIgnoreEnd
     }
 
-    private function verifyDNSChallenge($identifier, array $challenge, $keyAuthorization, LEAuthorization $auth)
+    protected function verifyDNSChallenge($identifier, array $challenge, $keyAuthorization, LEAuthorization $auth)
     {
         //check it ourselves
         $DNSDigest = LEFunctions::base64UrlSafeEncode(hash('sha256', $keyAuthorization, true));
@@ -513,7 +513,7 @@ class LEOrder
         return true;
     }
 
-    private function verifyHTTPChallenge($identifier, array $challenge, $keyAuthorization, LEAuthorization $auth)
+    protected function verifyHTTPChallenge($identifier, array $challenge, $keyAuthorization, LEAuthorization $auth)
     {
         if (!$this->connector->checkHTTPChallenge($identifier, $challenge['token'], $keyAuthorization)) {
             $this->log->warning("HTTP challenge for $identifier tested, found invalid.");
@@ -583,7 +583,7 @@ class LEOrder
      * @return string   Returns the generated CSR as string, unprepared for LetsEncrypt. Preparation for the request
      *                  happens in finalizeOrder()
      */
-    private function generateCSR()
+    protected function generateCSR()
     {
         $domains = array_map(function ($dns) {
             return $dns['value'];
@@ -626,7 +626,7 @@ class LEOrder
         return $csr;
     }
 
-    private function calcCommonName($domains)
+    protected function calcCommonName($domains)
     {
         if (in_array($this->basename, $domains)) {
             $CN = $this->basename;
@@ -748,7 +748,7 @@ class LEOrder
     }
 
 
-    private function writeCertificates($body)
+    protected function writeCertificates($body)
     {
         if (preg_match_all('~(-----BEGIN\sCERTIFICATE-----[\s\S]+?-----END\sCERTIFICATE-----)~i', $body, $matches)) {
             $this->storage->setCertificate($this->basename, $matches[0][0]);

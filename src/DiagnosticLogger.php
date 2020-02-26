@@ -13,7 +13,7 @@ use Psr\Log\AbstractLogger;
  */
 class DiagnosticLogger extends AbstractLogger
 {
-    private $logs = [];
+    protected $logs = [];
 
     public function log($level, $message, array $context = [])
     {
@@ -63,7 +63,7 @@ class DiagnosticLogger extends AbstractLogger
     /**
      * Interpolates context values into the message placeholders.
      */
-    private function interpolateMessage($message, array $context = [])
+    protected function interpolateMessage($message, array $context = [])
     {
         // build a replacement array with braces around the context keys
         $replace = [];
