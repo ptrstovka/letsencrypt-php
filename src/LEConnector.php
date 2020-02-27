@@ -234,6 +234,19 @@ class LEConnector
     }
 
     /**
+     * Makes a GET-As-Post request, as per the ACME Spec.
+     *
+     * @param string $url The URL or partial URL to make the request to.
+     *                    If it is partial, the baseURL will be prepended.
+     *
+     * @return array Returns an array with the keys 'request', 'header' and 'body'.
+     */
+    public function getAsPost($url)
+    {
+        return $this->post($url, $this->signRequestKid('', $this->accountURL, $url));
+    }
+
+    /**
      * Makes a POST request.
      *
      * @param string $url The URL or partial URL for the request to. If it is partial, the baseURL will be prepended.

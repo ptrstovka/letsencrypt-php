@@ -37,7 +37,7 @@ class LEAuthorization
         $this->log = $log;
         $this->authorizationURL = $authorizationURL;
 
-        $get = $this->connector->get($this->authorizationURL);
+        $get = $this->connector->getAsPost($this->authorizationURL);
         if ($get['status'] === 200) {
             $this->identifier = $get['body']['identifier'];
             $this->status = $get['body']['status'];
@@ -56,7 +56,7 @@ class LEAuthorization
 
     public function updateData()
     {
-        $get = $this->connector->get($this->authorizationURL);
+        $get = $this->connector->getAsPost($this->authorizationURL);
         if ($get['status'] === 200) {
             $this->identifier = $get['body']['identifier'];
             $this->status = $get['body']['status'];

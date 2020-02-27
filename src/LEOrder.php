@@ -146,7 +146,7 @@ class LEOrder
         }
 
         //retrieve the order
-        $get = $this->connector->get($this->orderURL);
+        $get = $this->connector->getAsPost($this->orderURL);
         if ($get['status'] !== 200) {
             //@codeCoverageIgnoreStart
             $this->log->warning("Order for {$this->basename} could not be loaded. Creating new order.");
@@ -294,7 +294,7 @@ class LEOrder
      */
     protected function updateOrderData()
     {
-        $get = $this->connector->get($this->orderURL);
+        $get = $this->connector->getAsPost($this->orderURL);
         if (strpos($get['header'], "200 OK") !== false) {
             $this->status = $get['body']['status'];
             $this->expires = $get['body']['expires'];
@@ -735,7 +735,7 @@ class LEOrder
             return false;
         }
 
-        $get = $this->connector->get($this->certificateURL);
+        $get = $this->connector->getAsPost($this->certificateURL);
         if (strpos($get['header'], "200 OK") === false) {
             $this->log->warning(
                 'Invalid response for certificate request for \'' . $this->basename .
