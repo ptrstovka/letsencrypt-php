@@ -189,11 +189,15 @@ class LEConnector
 
         $decoded = $body;
         if ($response->getHeaderLine('Content-Type') === 'application/json') {
-            $decoded = json_decode($body, true);
-            if (!$decoded) {
-                //@codeCoverageIgnoreStart
-                throw new RuntimeException('Bad JSON received ' . $body);
-                //@codeCoverageIgnoreEnd
+            if ($decoded != '') {
+                $decoded = json_decode($body, true);
+                if (!$decoded) {
+                    //@codeCoverageIgnoreStart
+                    throw new RuntimeException('Bad JSON received ' . $body);
+                    //@codeCoverageIgnoreEnd
+                }
+            } else {
+                $decoded = [];
             }
         }
 

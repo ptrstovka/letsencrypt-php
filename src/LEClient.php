@@ -23,6 +23,7 @@ class LEClient
 {
     const LE_PRODUCTION = 'https://acme-v02.api.letsencrypt.org';
     const LE_STAGING = 'https://acme-staging-v02.api.letsencrypt.org';
+    const BUYPASS_PRODUCTION = 'https://api.buypass.com/acme';
 
     /** @var LEConnector */
     protected $connector;
