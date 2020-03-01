@@ -508,7 +508,15 @@ class LEOrder
             $this->sleep->for(1);
             $auth->updateData();
         }
-        $this->log->notice("DNS challenge for $identifier validated");
+
+        $this->log->notice("DNS challenge for $identifier: " . $auth->status);
+
+        if ($auth->status != 'valid') {
+            $challenge = $auth->getChallenge(LEOrder::CHALLENGE_TYPE_DNS);
+            if (isset($challenge['error'])) {
+                $this->log->error($challenge['error']['detail'], ['auth' => $auth]);
+            }
+        }
 
         return true;
     }
