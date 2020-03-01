@@ -86,7 +86,7 @@ class LEConnectorTest extends LETestCase
         //deactivation isn't persisted, its just a flag to prevent further API calls in the same session
         $connector->accountDeactivated = true;
 
-        $connector->get("https://acme-staging-v02.api.letsencrypt.org/acme/new-acct");
+        $connector->getAsPost("https://acme-staging-v02.api.letsencrypt.org/acme/new-acct");
     }
 
     /**

@@ -39,7 +39,7 @@ class LEOrderTest extends LETestCase
         $authz1['header']='200 OK';
         $authz1['status']=200;
         $authz1['body']=json_decode($this->getAuthzJSON('example.org', $authValid), true);
-        $connector->get(
+        $connector->getAsPost(
             'https://acme-staging-v02.api.letsencrypt.org/acme/authz/X2QaFXwrBz7VlN6zdKgm_jmiBctwVZgMZXks4YhfPng',
             Argument::any()
         )->willReturn($authz1);
@@ -48,7 +48,7 @@ class LEOrderTest extends LETestCase
         $authz2['header']='200 OK';
         $authz2['status']=200;
         $authz2['body']=json_decode($this->getAuthzJSON('test.example.org', $authValid), true);
-        $connector->get(
+        $connector->getAsPost(
             'https://acme-staging-v02.api.letsencrypt.org/acme/authz/WDMI8oX6avFT_rEBfh-ZBMdZs3S-7li2l5gRrps4MXM',
             Argument::any()
         )->willReturn($authz2);
@@ -57,7 +57,7 @@ class LEOrderTest extends LETestCase
         $orderReq['header']='200 OK';
         $orderReq['status']=200;
         $orderReq['body']=json_decode($this->getOrderJSON($orderStatus), true);
-        $connector->get("http://test.local/order/test")->willReturn($orderReq);
+        $connector->getAsPost("http://test.local/order/test")->willReturn($orderReq);
 
         //simulate challenge URLs
         foreach ($authz1['body']['challenges'] as $challenge) {
@@ -421,7 +421,7 @@ PRIVATE;
         $orderReq['status']=200;
         $orderReq['body']=$order;
 
-        $connector->get("http://test.local/order/test")->willReturn($orderReq);
+        $connector->getAsPost("http://test.local/order/test")->willReturn($orderReq);
 
         return $connector->reveal();
     }
@@ -483,7 +483,7 @@ PRIVATE;
         $authz1['header']='200 OK';
         $authz1['status']=200;
         $authz1['body']=json_decode($this->getAuthzJSON('example.org', $valid), true);
-        $connector->get(
+        $connector->getAsPost(
             'https://acme-staging-v02.api.letsencrypt.org/acme/authz/X2QaFXwrBz7VlN6zdKgm_jmiBctwVZgMZXks4YhfPng',
             Argument::any()
         )->willReturn($authz1);
@@ -492,7 +492,7 @@ PRIVATE;
         $authz2['header']='200 OK';
         $authz2['status']=200;
         $authz2['body']=json_decode($this->getAuthzJSON('test.example.org', $valid), true);
-        $connector->get(
+        $connector->getAsPost(
             'https://acme-staging-v02.api.letsencrypt.org/acme/authz/WDMI8oX6avFT_rEBfh-ZBMdZs3S-7li2l5gRrps4MXM',
             Argument::any()
         )->willReturn($authz2);
@@ -505,13 +505,13 @@ PRIVATE;
         if (!$eventuallyValid) {
             $orderReq['body']['status'] = 'processing';
         }
-        $connector->get('http://test.local/order/test')->willReturn($orderReq);
+        $connector->getAsPost('http://test.local/order/test')->willReturn($orderReq);
 
         $certReq=[];
         $certReq['header']=$goodCertRequest ? '200 OK' : '500 Failed';
         $certReq['status']=200;
         $certReq['body']=$garbage ? 'NOT-A-CERT' : $this->getCertBody();
-        $connector->get('https://acme-staging-v02.api.letsencrypt.org/acme/cert/fae09c6dcdaf7aa198092b3170c69129a490')
+        $connector->getAsPost('https://acme-staging-v02.api.letsencrypt.org/acme/cert/fae09c6dcdaf7aa198092b3170c69129a490')
             ->willReturn($certReq);
 
         $revokeReq=[];
