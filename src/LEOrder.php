@@ -240,7 +240,7 @@ class LEOrder
             }
             $dns[] = ['type' => 'dns', 'value' => $domain];
         }
-        $payload = ["identifiers" => $dns, 'notBefore' => $notBefore, 'notAfter' => $notAfter];
+        $payload = array_filter(["identifiers" => $dns, 'notBefore' => $notBefore, 'notAfter' => $notAfter]);
         $sign = $this->connector->signRequestKid(
             $payload,
             $this->connector->accountURL,

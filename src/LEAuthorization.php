@@ -41,7 +41,7 @@ class LEAuthorization
         if ($get['status'] === 200) {
             $this->identifier = $get['body']['identifier'];
             $this->status = $get['body']['status'];
-            $this->expires = $get['body']['expires'];
+            $this->expires = $get['body']['expires'] ?? null;
             $this->challenges = $get['body']['challenges'];
         } else {
             //@codeCoverageIgnoreStart
@@ -60,7 +60,7 @@ class LEAuthorization
         if ($get['status'] === 200) {
             $this->identifier = $get['body']['identifier'];
             $this->status = $get['body']['status'];
-            $this->expires = $get['body']['expires'];
+            $this->expires = $get['body']['expires'] ?? null;
             $this->challenges = $get['body']['challenges'];
         } else {
             //@codeCoverageIgnoreStart
