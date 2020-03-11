@@ -67,6 +67,9 @@ class LEOrder
     /** @var CertificateStorageInterface storage interface provided to constructor */
     protected $storage;
 
+    /** @param bool Don't create a new Key Pair when one already exist for a basename */
+    protected $reuseExistingKeys = false;
+
     /**
      * Initiates the LetsEncrypt Order class. If the base name is found in the $keysDir directory, the order data is
      * requested. If no order was found locally, if the request is invalid or when there is a change in domain names, a
@@ -77,13 +80,15 @@ class LEOrder
      * @param LoggerInterface $log PSR-3 compatible logger
      * @param DNSValidatorInterface $dns DNS challenge checking service
      * @param WaitInterface $sleep Sleep service for polling
+     * @param bool $reuseExistingKeys Don't create a new Key Pair when one already exist for a basename
      */
     public function __construct(
         LEConnector $connector,
         CertificateStorageInterface $storage,
         LoggerInterface $log,
         DNSValidatorInterface $dns,
-        WaitInterface $sleep
+        WaitInterface $sleep,
+        $reuseExistingKeys = false
     ) {
 
         $this->connector = $connector;
@@ -91,6 +96,7 @@ class LEOrder
         $this->dns = $dns;
         $this->sleep = $sleep;
         $this->storage = $storage;
+        $this->reuseExistingKeys = $reuseExistingKeys;
     }
 
     /**
@@ -188,8 +194,10 @@ class LEOrder
 
     protected function deleteOrderFiles()
     {
-        $this->storage->setPrivateKey($this->basename, null);
-        $this->storage->setPublicKey($this->basename, null);
+        if (!$this->reuseExistingKeys) {
+            $this->storage->setPrivateKey($this->basename, null);
+            $this->storage->setPublicKey($this->basename, null);
+        }
         $this->storage->setCertificate($this->basename, null);
         $this->storage->setFullChainCertificate($this->basename, null);
         $this->storage->setMetadata($this->basename.'.order.url', null);
@@ -262,7 +270,9 @@ class LEOrder
         $this->orderURL = trim($matches[1]);
         $this->storage->setMetadata($this->basename.'.order.url', $this->orderURL);
 
-        $this->generateKeys();
+        if (!$this->reuseExistingKeys || is_null($this->storage->getPrivateKey($this->basename))) {
+            $this->generateKeys();
+        }
 
         $this->status = $post['body']['status'];
         $this->expires = $post['body']['expires'];
