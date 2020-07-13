@@ -170,8 +170,8 @@ class LEClient
     {
         $this->log->info("LEClient::getOrCreateOrder($basename,...)");
 
-        $order = new LEOrder($this->getConnector(), $this->storage, $this->log, $this->dns, $this->sleep);
-        $order->loadOrder($basename, $domains, $keyType, $notBefore, $notAfter, $reuseExistingKeys);
+        $order = new LEOrder($this->getConnector(), $this->storage, $this->log, $this->dns, $this->sleep, $reuseExistingKeys);
+        $order->loadOrder($basename, $domains, $keyType, $notBefore, $notAfter);
 
         return $order;
     }
